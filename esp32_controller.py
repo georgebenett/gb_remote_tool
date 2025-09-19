@@ -24,8 +24,8 @@ from packaging import version
 import serial
 import requests
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QGridLayout, QLabel, QPushButton, QLineEdit, QComboBox, 
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QGridLayout, QLabel, QPushButton, QLineEdit, QComboBox,
     QCheckBox, QTextEdit, QGroupBox, QFrame, QSplitter,
     QMessageBox, QFileDialog, QProgressBar, QTabWidget,
     QScrollArea, QSizePolicy, QSpacerItem, QButtonGroup,
@@ -44,13 +44,13 @@ class SerialWorker(QThread):
     """Worker thread for serial communication"""
     data_received = pyqtSignal(str)
     connection_changed = pyqtSignal(bool)
-    
+
     def __init__(self):
         super().__init__()
         self.serial_port = None
         self.is_connected = False
         self.running = True
-        
+
     def connect(self, port, baudrate=115200):
         """Connect to serial port"""
         try:
@@ -66,7 +66,7 @@ class SerialWorker(QThread):
         except Exception as e:
             self.connection_changed.emit(False)
             return False
-    
+
     def disconnect(self):
         """Disconnect from serial port"""
         self.is_connected = False
@@ -77,7 +77,7 @@ class SerialWorker(QThread):
                 pass
             self.serial_port = None
         self.connection_changed.emit(False)
-    
+
     def send_command(self, command):
         """Send command via serial"""
         if self.is_connected and self.serial_port:
@@ -87,7 +87,7 @@ class SerialWorker(QThread):
             except:
                 return False
         return False
-    
+
     def run(self):
         """Main thread loop"""
         while self.running:
@@ -101,7 +101,7 @@ class SerialWorker(QThread):
                     self.is_connected = False
                     self.connection_changed.emit(False)
             time.sleep(0.01)
-    
+
     def stop(self):
         """Stop the worker thread"""
         self.running = False
@@ -113,7 +113,7 @@ class ModernButton(QPushButton):
         super().__init__(text, *args, **kwargs)
         self.primary = primary
         self.setup_style()
-        
+
     def setup_style(self):
         """Setup modern button styling"""
         if self.primary:
@@ -172,7 +172,7 @@ class ModernGroupBox(QGroupBox):
     def __init__(self, title="", *args, **kwargs):
         super().__init__(title, *args, **kwargs)
         self.setup_style()
-        
+
     def setup_style(self):
         """Setup modern group box styling"""
         self.setStyleSheet("""
@@ -201,11 +201,11 @@ class ToolTipWidget(QWidget):
         self.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setup_ui(text)
-        
+
     def setup_ui(self, text):
         layout = QVBoxLayout()
         layout.setContentsMargins(10, 8, 10, 8)
-        
+
         label = QLabel(text)
         label.setWordWrap(True)
         label.setMaximumWidth(300)
@@ -219,17 +219,17 @@ class ToolTipWidget(QWidget):
                 font-size: 12px;
             }
         """)
-        
+
         layout.addWidget(label)
         self.setLayout(layout)
 
 class ESP32ControllerQt(QMainWindow):
     """Main application window"""
-    
+
     # Define signals
     flash_log_signal = pyqtSignal(str)
     flash_complete_signal = pyqtSignal(bool, str)
-    
+
     def __init__(self):
         super().__init__()
         self.serial_worker = SerialWorker()
@@ -248,17 +248,17 @@ class ESP32ControllerQt(QMainWindow):
             'pid_kd': 0.05,
             'pid_output_max': 48.0
         }
-        
+
         self.setup_ui()
         self.setup_connections()
         self.setup_serial_worker()
-        
+
     def setup_ui(self):
         """Setup the user interface"""
         self.setWindowTitle("ESP32 Hand Controller Configuration - Qt")
         self.setMinimumSize(1200, 1100)
         self.resize(1500, 1100)
-        
+
         # Set application style
         self.setStyleSheet("""
             QMainWindow {
@@ -309,90 +309,90 @@ class ESP32ControllerQt(QMainWindow):
                 border-color: #4A90E2;
             }
         """)
-        
+
         # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
+
         # Create main layout
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(20)
-        
+
         # Create splitter for resizable panels
         splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(splitter)
-        
+
         # Left panel - Configuration
         self.create_config_panel(splitter)
-        
+
         # Right panel - Response and Status
         self.create_response_panel(splitter)
-        
+
         # Set splitter proportions
         splitter.setSizes([800, 600])
-        
+
     def create_config_panel(self, parent):
         """Create the configuration panel"""
         config_widget = QWidget()
         config_widget.setMaximumWidth(800)
         layout = QVBoxLayout(config_widget)
         layout.setSpacing(15)
-        
+
         # Connection section
         self.create_connection_section(layout)
-        
+
         # Configuration sections
         self.create_basic_config_section(layout)
         self.create_pid_config_section(layout)
         self.create_firmware_section(layout)
         self.create_actions_section(layout)
-        
+
         # Add stretch to push everything to top
         layout.addStretch()
-        
+
         parent.addWidget(config_widget)
-        
+
     def create_connection_section(self, layout):
         """Create connection section"""
         group = ModernGroupBox("Connection")
         group_layout = QGridLayout(group)
-        
+
         # Port selection
         group_layout.addWidget(QLabel("Port:"), 0, 0)
         self.port_combo = QComboBox()
         self.port_combo.addItems(self.get_available_ports())
         self.port_combo.setCurrentText("/dev/ttyACM0")
         group_layout.addWidget(self.port_combo, 0, 1)
-        
+
         # Connect button
         self.connect_btn = ModernButton("Connect", primary=True)
         self.connect_btn.clicked.connect(self.toggle_connection)
         group_layout.addWidget(self.connect_btn, 0, 2)
-        
+
         # Status label
         self.status_label = QLabel("Disconnected")
         self.status_label.setStyleSheet("color: #E74C3C; font-weight: bold;")
         group_layout.addWidget(self.status_label, 0, 3)
-        
+
         # Refresh button
         refresh_btn = ModernButton("Refresh")
         refresh_btn.clicked.connect(self.refresh_ports)
         group_layout.addWidget(refresh_btn, 0, 4)
-        
+
         layout.addWidget(group)
-        
+
     def create_basic_config_section(self, layout):
         """Create basic configuration section"""
         group = ModernGroupBox("Basic Configuration")
         group_layout = QVBoxLayout(group)
-        
+
         # Throttle inversion
         throttle_layout = QHBoxLayout()
         throttle_label = QLabel("Throttle Inversion:")
         throttle_label.setMinimumWidth(150)
         throttle_layout.addWidget(throttle_label)
-        
+
         # Help button for throttle
         help_btn = QPushButton("?")
         help_btn.setFixedSize(25, 25)
@@ -410,60 +410,60 @@ class ESP32ControllerQt(QMainWindow):
         """)
         help_btn.clicked.connect(self.show_throttle_help)
         throttle_layout.addWidget(help_btn)
-        
+
         throttle_layout.addStretch()
-        
+
         self.throttle_check = QCheckBox("Inverted (like Boosted boards)")
         self.throttle_check.toggled.connect(self.toggle_throttle)
         throttle_layout.addWidget(self.throttle_check)
-        
+
         group_layout.addLayout(throttle_layout)
-        
+
         # Level assistant
         level_layout = QHBoxLayout()
         level_label = QLabel("Level Assistant:")
         level_label.setMinimumWidth(150)
         level_layout.addWidget(level_label)
-        
+
         # Help button for level assistant
         level_help_btn = QPushButton("?")
         level_help_btn.setFixedSize(25, 25)
         level_help_btn.setStyleSheet(help_btn.styleSheet())
         level_help_btn.clicked.connect(self.show_level_assistant_help)
         level_layout.addWidget(level_help_btn)
-        
+
         level_layout.addStretch()
-        
+
         self.level_assist_check = QCheckBox("Enabled")
         self.level_assist_check.toggled.connect(self.toggle_level_assistant)
         level_layout.addWidget(self.level_assist_check)
-        
+
         group_layout.addLayout(level_layout)
-        
+
         # Speed unit
         speed_layout = QHBoxLayout()
         speed_label = QLabel("Speed Unit:")
         speed_label.setMinimumWidth(150)
         speed_layout.addWidget(speed_label)
-        
+
         # Help button for speed unit
         speed_help_btn = QPushButton("?")
         speed_help_btn.setFixedSize(25, 25)
         speed_help_btn.setStyleSheet(help_btn.styleSheet())
         speed_help_btn.clicked.connect(self.show_speed_unit_help)
         speed_layout.addWidget(speed_help_btn)
-        
+
         speed_layout.addStretch()
-        
+
         self.speed_unit_check = QCheckBox("mi/h (unchecked = km/h)")
         self.speed_unit_check.toggled.connect(self.toggle_speed_unit)
         speed_layout.addWidget(self.speed_unit_check)
-        
+
         group_layout.addLayout(speed_layout)
-        
+
         # Motor and wheel configuration
         config_grid = QGridLayout()
-        
+
         # Motor pulley
         config_grid.addWidget(QLabel("Motor Pulley Teeth:"), 0, 0)
         self.pulley_spin = QSpinBox()
@@ -473,7 +473,7 @@ class ESP32ControllerQt(QMainWindow):
         pulley_btn = ModernButton("Set")
         pulley_btn.clicked.connect(self.set_motor_pulley)
         config_grid.addWidget(pulley_btn, 0, 2)
-        
+
         # Wheel pulley
         config_grid.addWidget(QLabel("Wheel Pulley Teeth:"), 1, 0)
         self.wheel_pulley_spin = QSpinBox()
@@ -483,7 +483,7 @@ class ESP32ControllerQt(QMainWindow):
         wheel_pulley_btn = ModernButton("Set")
         wheel_pulley_btn.clicked.connect(self.set_wheel_pulley)
         config_grid.addWidget(wheel_pulley_btn, 1, 2)
-        
+
         # Wheel diameter
         config_grid.addWidget(QLabel("Wheel Diameter (mm):"), 2, 0)
         self.wheel_spin = QSpinBox()
@@ -493,7 +493,7 @@ class ESP32ControllerQt(QMainWindow):
         wheel_btn = ModernButton("Set")
         wheel_btn.clicked.connect(self.set_wheel_size)
         config_grid.addWidget(wheel_btn, 2, 2)
-        
+
         # Motor poles
         config_grid.addWidget(QLabel("Motor Poles:"), 3, 0)
         self.poles_spin = QSpinBox()
@@ -503,18 +503,18 @@ class ESP32ControllerQt(QMainWindow):
         poles_btn = ModernButton("Set")
         poles_btn.clicked.connect(self.set_motor_poles)
         config_grid.addWidget(poles_btn, 3, 2)
-        
+
         group_layout.addLayout(config_grid)
         layout.addWidget(group)
-        
+
     def create_pid_config_section(self, layout):
         """Create PID configuration section"""
         group = ModernGroupBox("Level Assistant PID Tuning")
         group_layout = QVBoxLayout(group)
-        
+
         # PID parameters grid
         pid_grid = QGridLayout()
-        
+
         # Kp
         pid_grid.addWidget(QLabel("Kp (Proportional):"), 0, 0)
         self.pid_kp_spin = QDoubleSpinBox()
@@ -526,7 +526,7 @@ class ESP32ControllerQt(QMainWindow):
         kp_btn = ModernButton("Set")
         kp_btn.clicked.connect(self.set_pid_kp)
         pid_grid.addWidget(kp_btn, 0, 2)
-        
+
         # Ki
         pid_grid.addWidget(QLabel("Ki (Integral):"), 1, 0)
         self.pid_ki_spin = QDoubleSpinBox()
@@ -538,7 +538,7 @@ class ESP32ControllerQt(QMainWindow):
         ki_btn = ModernButton("Set")
         ki_btn.clicked.connect(self.set_pid_ki)
         pid_grid.addWidget(ki_btn, 1, 2)
-        
+
         # Kd
         pid_grid.addWidget(QLabel("Kd (Derivative):"), 2, 0)
         self.pid_kd_spin = QDoubleSpinBox()
@@ -550,7 +550,7 @@ class ESP32ControllerQt(QMainWindow):
         kd_btn = ModernButton("Set")
         kd_btn.clicked.connect(self.set_pid_kd)
         pid_grid.addWidget(kd_btn, 2, 2)
-        
+
         # Output Max
         pid_grid.addWidget(QLabel("Output Max:"), 3, 0)
         self.pid_output_max_spin = QDoubleSpinBox()
@@ -562,27 +562,27 @@ class ESP32ControllerQt(QMainWindow):
         output_max_btn = ModernButton("Set")
         output_max_btn.clicked.connect(self.set_pid_output_max)
         pid_grid.addWidget(output_max_btn, 3, 2)
-        
+
         group_layout.addLayout(pid_grid)
-        
+
         # PID action buttons
         pid_actions = QHBoxLayout()
         get_pid_btn = ModernButton("Get PID Parameters")
         get_pid_btn.clicked.connect(self.get_pid_params)
         pid_actions.addWidget(get_pid_btn)
-        
+
         load_defaults_btn = ModernButton("Load Defaults")
         load_defaults_btn.clicked.connect(self.load_pid_defaults)
         pid_actions.addWidget(load_defaults_btn)
-        
+
         group_layout.addLayout(pid_actions)
         layout.addWidget(group)
-        
+
     def create_firmware_section(self, layout):
         """Create firmware section"""
         group = ModernGroupBox("Firmware Management")
         group_layout = QVBoxLayout(group)
-        
+
         # ESP-IDF Path
         idf_layout = QHBoxLayout()
         idf_layout.addWidget(QLabel("ESP-IDF Path:"))
@@ -592,9 +592,9 @@ class ESP32ControllerQt(QMainWindow):
         browse_idf_btn = ModernButton("Browse")
         browse_idf_btn.clicked.connect(self.browse_idf_path)
         idf_layout.addWidget(browse_idf_btn)
-        
+
         group_layout.addLayout(idf_layout)
-        
+
         # Firmware file
         firmware_layout = QHBoxLayout()
         firmware_layout.addWidget(QLabel("Firmware File:"))
@@ -603,34 +603,34 @@ class ESP32ControllerQt(QMainWindow):
         browse_firmware_btn = ModernButton("Browse")
         browse_firmware_btn.clicked.connect(self.browse_firmware_file)
         firmware_layout.addWidget(browse_firmware_btn)
-        
+
         group_layout.addLayout(firmware_layout)
-        
+
         # Firmware action buttons
         firmware_actions = QHBoxLayout()
         download_btn = ModernButton("Download Latest")
         download_btn.clicked.connect(self.download_latest_firmware)
         firmware_actions.addWidget(download_btn)
-        
+
         flash_btn = ModernButton("Flash Firmware", primary=True)
         flash_btn.clicked.connect(self.flash_firmware)
         firmware_actions.addWidget(flash_btn)
-        
+
         check_update_btn = ModernButton("Check Updates")
         check_update_btn.clicked.connect(self.check_firmware_update)
         firmware_actions.addWidget(check_update_btn)
-        
+
         group_layout.addLayout(firmware_actions)
         layout.addWidget(group)
-        
+
     def create_actions_section(self, layout):
         """Create actions section"""
         group = ModernGroupBox("Actions")
         group_layout = QVBoxLayout(group)
-        
+
         # Action buttons grid
         actions_grid = QGridLayout()
-        
+
         buttons = [
             ("Reset Odometer", self.reset_odometer),
             ("Get Config", self.get_config),
@@ -638,43 +638,43 @@ class ESP32ControllerQt(QMainWindow):
             ("Get Calibration", self.get_calibration),
             ("Help", self.show_help),
         ]
-        
+
         for i, (text, command) in enumerate(buttons):
             row = i // 3
             col = i % 3
             btn = ModernButton(text)
             btn.clicked.connect(command)
             actions_grid.addWidget(btn, row, col)
-        
+
         group_layout.addLayout(actions_grid)
         layout.addWidget(group)
-        
+
     def create_response_panel(self, parent):
         """Create the response panel"""
         response_widget = QWidget()
         layout = QVBoxLayout(response_widget)
         layout.setSpacing(15)
-        
+
         # Response text area
         response_group = ModernGroupBox("Response")
         response_layout = QVBoxLayout(response_group)
-        
+
         self.response_text = QTextEdit()
         self.response_text.setReadOnly(True)
         self.response_text.setMinimumHeight(400)
         response_layout.addWidget(self.response_text)
-        
+
         # Clear button
         clear_btn = ModernButton("Clear")
         clear_btn.clicked.connect(self.clear_response)
         response_layout.addWidget(clear_btn)
-        
+
         layout.addWidget(response_group)
-        
+
         # Current configuration display
         config_group = ModernGroupBox("Current Configuration")
         config_layout = QVBoxLayout(config_group)
-        
+
         self.config_display = QTextEdit()
         self.config_display.setReadOnly(True)
         self.config_display.setMaximumHeight(200)
@@ -687,24 +687,24 @@ class ESP32ControllerQt(QMainWindow):
             }
         """)
         config_layout.addWidget(self.config_display)
-        
+
         layout.addWidget(config_group)
         parent.addWidget(response_widget)
-        
+
     def setup_connections(self):
         """Setup signal connections"""
         # Serial worker connections
         self.serial_worker.data_received.connect(self.process_response)
         self.serial_worker.connection_changed.connect(self.on_connection_changed)
-        
+
         # Flash signals
         self.flash_log_signal.connect(self.log_message)
         self.flash_complete_signal.connect(self.on_flash_complete)
-        
+
     def setup_serial_worker(self):
         """Setup and start serial worker"""
         self.serial_worker.start()
-        
+
     def get_available_ports(self):
         """Get list of available serial ports"""
         if sys.platform.startswith('win'):
@@ -715,7 +715,7 @@ class ESP32ControllerQt(QMainWindow):
             ports = glob.glob('/dev/tty.*')
         else:
             return []
-        
+
         result = []
         for port in ports:
             try:
@@ -725,19 +725,19 @@ class ESP32ControllerQt(QMainWindow):
             except (OSError, serial.SerialException):
                 pass
         return result
-        
+
     def refresh_ports(self):
         """Refresh available ports"""
         self.port_combo.clear()
         self.port_combo.addItems(self.get_available_ports())
-        
+
     def toggle_connection(self):
         """Toggle serial connection"""
         if not self.serial_worker.is_connected:
             self.connect()
         else:
             self.disconnect()
-            
+
     def connect(self):
         """Connect to ESP32"""
         port = self.port_combo.currentText()
@@ -745,12 +745,12 @@ class ESP32ControllerQt(QMainWindow):
             self.log_message("Connected to ESP32 Hand Controller")
         else:
             QMessageBox.critical(self, "Connection Error", "Failed to connect to ESP32")
-            
+
     def disconnect(self):
         """Disconnect from ESP32"""
         self.serial_worker.disconnect()
         self.log_message("Disconnected from ESP32")
-        
+
     def on_connection_changed(self, connected):
         """Handle connection state change"""
         if connected:
@@ -761,42 +761,42 @@ class ESP32ControllerQt(QMainWindow):
             self.connect_btn.setText("Connect")
             self.status_label.setText("Disconnected")
             self.status_label.setStyleSheet("color: #E74C3C; font-weight: bold;")
-            
+
     def send_serial_command(self, command):
         """Send command via serial"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return False
-            
+
         if self.serial_worker.send_command(command):
             self.log_message(f"Sent: {command}")
             return True
         else:
             QMessageBox.critical(self, "Send Error", "Failed to send command")
             return False
-            
+
     def process_response(self, response):
         """Process response from ESP32"""
         cleaned_response = self.clean_response(response)
         if cleaned_response:
             self.log_message(cleaned_response)
             self.parse_config_response(cleaned_response)
-            
+
     def clean_response(self, response):
         """Clean up response by removing ANSI codes and verbose logging"""
         # Remove ANSI color codes
         ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
         cleaned = ansi_escape.sub('', response)
-        
+
         # Remove verbose logging lines
         lines = cleaned.split('\n')
         filtered_lines = []
-        
+
         for line in lines:
             line = line.strip()
             if not line or line in ['>', '']:
                 continue
-                
+
             # Skip verbose logging lines
             if any(skip_pattern in line for skip_pattern in [
                 'I (', 'USB_SERIAL: Processing command:',
@@ -813,35 +813,53 @@ class ESP32ControllerQt(QMainWindow):
                 'USB_SERIAL: Unknown command:'
             ]):
                 continue
-                
+
             filtered_lines.append(line)
-            
+
         return '\n'.join(filtered_lines) if filtered_lines else None
-        
+
     def parse_config_response(self, response):
         """Parse configuration response"""
         try:
-            # Parse throttle inversion
+            # Parse individual command responses (for real-time updates)
+            # These patterns are for individual command responses, not the full config display
+
+            # Parse throttle inversion responses
             if "Throttle inversion: ENABLED" in response:
                 self.config['invert_throttle'] = True
+                self.throttle_check.blockSignals(True)
                 self.throttle_check.setChecked(True)
+                self.throttle_check.blockSignals(False)
             elif "Throttle inversion: DISABLED" in response:
                 self.config['invert_throttle'] = False
+                self.throttle_check.blockSignals(True)
                 self.throttle_check.setChecked(False)
-                
-            # Parse level assistant
+                self.throttle_check.blockSignals(False)
+
+            # Parse level assistant responses
             if "Level assistant: ENABLED" in response:
                 self.config['level_assistant'] = True
+                self.level_assist_check.blockSignals(True)
                 self.level_assist_check.setChecked(True)
+                self.level_assist_check.blockSignals(False)
             elif "Level assistant: DISABLED" in response:
                 self.config['level_assistant'] = False
+                self.level_assist_check.blockSignals(True)
                 self.level_assist_check.setChecked(False)
-                
-            # Parse speed unit
-            if "Speed Unit:" in response:
-                self.config['speed_unit_mph'] = "mi/h" in response
-                self.speed_unit_check.setChecked(self.config['speed_unit_mph'])
-                
+                self.level_assist_check.blockSignals(False)
+
+            # Parse speed unit responses
+            if "Speed Unit: mi/h" in response:
+                self.config['speed_unit_mph'] = True
+                self.speed_unit_check.blockSignals(True)
+                self.speed_unit_check.setChecked(True)
+                self.speed_unit_check.blockSignals(False)
+            elif "Speed Unit: km/h" in response:
+                self.config['speed_unit_mph'] = False
+                self.speed_unit_check.blockSignals(True)
+                self.speed_unit_check.setChecked(False)
+                self.speed_unit_check.blockSignals(False)
+
             # Parse PID parameters
             if "PID Kp set to:" in response:
                 try:
@@ -850,7 +868,7 @@ class ESP32ControllerQt(QMainWindow):
                     self.pid_kp_spin.setValue(kp)
                 except:
                     pass
-                    
+
             if "PID Ki set to:" in response:
                 try:
                     ki = float(response.split("PID Ki set to:")[1].strip())
@@ -858,7 +876,7 @@ class ESP32ControllerQt(QMainWindow):
                     self.pid_ki_spin.setValue(ki)
                 except:
                     pass
-                    
+
             if "PID Kd set to:" in response:
                 try:
                     kd = float(response.split("PID Kd set to:")[1].strip())
@@ -866,7 +884,7 @@ class ESP32ControllerQt(QMainWindow):
                     self.pid_kd_spin.setValue(kd)
                 except:
                     pass
-                    
+
             if "PID Output Max set to:" in response:
                 try:
                     output_max = float(response.split("PID Output Max set to:")[1].strip())
@@ -874,7 +892,7 @@ class ESP32ControllerQt(QMainWindow):
                     self.pid_output_max_spin.setValue(output_max)
                 except:
                     pass
-                    
+
             # Parse motor/wheel settings
             if "Motor pulley teeth set to:" in response:
                 try:
@@ -883,7 +901,7 @@ class ESP32ControllerQt(QMainWindow):
                     self.pulley_spin.setValue(teeth)
                 except:
                     pass
-                    
+
             if "Wheel pulley teeth set to:" in response:
                 try:
                     teeth = int(response.split("Wheel pulley teeth set to:")[1].strip())
@@ -891,7 +909,7 @@ class ESP32ControllerQt(QMainWindow):
                     self.wheel_pulley_spin.setValue(teeth)
                 except:
                     pass
-                    
+
             if "Wheel diameter set to:" in response:
                 try:
                     size = int(response.split("Wheel diameter set to:")[1].split("mm")[0].strip())
@@ -899,7 +917,7 @@ class ESP32ControllerQt(QMainWindow):
                     self.wheel_spin.setValue(size)
                 except:
                     pass
-                    
+
             if "Motor poles set to:" in response:
                 try:
                     poles = int(response.split("Motor poles set to:")[1].strip())
@@ -907,21 +925,81 @@ class ESP32ControllerQt(QMainWindow):
                     self.poles_spin.setValue(poles)
                 except:
                     pass
-                    
+
             # Parse firmware version
             if "Firmware version:" in response or "Firmware Version:" in response:
                 try:
                     version_text = response.split(":")[1].strip()
                     self.config['firmware_version'] = version_text
+                    self.update_config_display()
                 except:
                     pass
-                    
-            # Update configuration display
-            self.update_config_display()
-            
+
+            # Parse configuration display format (from get_config command)
+            # Check for individual configuration lines from get_config command
+            if any(key in response for key in [
+                "Firmware Version:", "Throttle Inverted:", "Level Assistant:",
+                "Speed Unit:", "Motor Pulley Teeth:", "Wheel Pulley Teeth:",
+                "Wheel Diameter:", "Motor Poles:", "BLE Connected:"
+            ]):
+                self.parse_config_display(response)
+            else:
+                # Update configuration display for individual responses
+                self.update_config_display()
+
         except Exception as e:
             print(f"Error parsing config response: {e}")
-            
+
+    def parse_config_display(self, response):
+        """Parse the configuration display response from get_config command"""
+        lines = response.split('\n')
+
+        for line in lines:
+            if ':' in line:
+                try:
+                    key, value = line.split(':', 1)
+                    key = key.strip()
+                    value = value.strip()
+
+                    # Parse each configuration item
+                    if key == "Firmware Version":
+                        self.config['firmware_version'] = value
+                    elif key == "Throttle Inverted":
+                        self.config['invert_throttle'] = (value.lower() == "yes")
+                        self.throttle_check.blockSignals(True)
+                        self.throttle_check.setChecked(self.config['invert_throttle'])
+                        self.throttle_check.blockSignals(False)
+                    elif key == "Level Assistant":
+                        self.config['level_assistant'] = (value.lower() == "yes")
+                        self.level_assist_check.blockSignals(True)
+                        self.level_assist_check.setChecked(self.config['level_assistant'])
+                        self.level_assist_check.blockSignals(False)
+                    elif key == "Speed Unit":
+                        self.config['speed_unit_mph'] = (value.lower() == "mi/h")
+                        self.speed_unit_check.blockSignals(True)
+                        self.speed_unit_check.setChecked(self.config['speed_unit_mph'])
+                        self.speed_unit_check.blockSignals(False)
+                    elif key == "Motor Pulley Teeth":
+                        self.config['motor_pulley'] = int(value)
+                        self.pulley_spin.setValue(self.config['motor_pulley'])
+                    elif key == "Wheel Pulley Teeth":
+                        self.config['wheel_pulley'] = int(value)
+                        self.wheel_pulley_spin.setValue(self.config['wheel_pulley'])
+                    elif key == "Wheel Diameter":
+                        # Handle "120 mm" format
+                        diameter = value.split()[0] if ' ' in value else value
+                        self.config['wheel_diameter_mm'] = int(diameter)
+                        self.wheel_spin.setValue(self.config['wheel_diameter_mm'])
+                    elif key == "Motor Poles":
+                        self.config['motor_poles'] = int(value)
+                        self.poles_spin.setValue(self.config['motor_poles'])
+                    elif key == "BLE Connected":
+                        self.config['ble_connected'] = (value.lower() == "yes")
+
+                except Exception as e:
+                    print(f"Error parsing line '{line}': {e}")
+                    continue
+
     def update_config_display(self):
         """Update the configuration display"""
         config_text = f"""Firmware Version: {self.config['firmware_version']}
@@ -937,9 +1015,9 @@ PID Kp: {self.config['pid_kp']}
 PID Ki: {self.config['pid_ki']}
 PID Kd: {self.config['pid_kd']}
 PID Output Max: {self.config['pid_output_max']}"""
-        
+
         self.config_display.setPlainText(config_text)
-        
+
     def log_message(self, message):
         """Add message to response text area"""
         # Format different types of messages
@@ -986,14 +1064,14 @@ PID Output Max: {self.config['pid_output_max']}"""
             self.response_text.append(f"  {message}")
         else:
             self.response_text.append(message)
-            
+
         # Auto-scroll to bottom
         self.response_text.ensureCursorVisible()
-        
+
     def clear_response(self):
         """Clear response text area"""
         self.response_text.clear()
-        
+
     # Configuration methods
     def toggle_throttle(self):
         """Toggle throttle inversion"""
@@ -1001,113 +1079,113 @@ PID Output Max: {self.config['pid_output_max']}"""
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             self.throttle_check.setChecked(not self.throttle_check.isChecked())
             return
-            
+
         self.send_serial_command("invert_throttle")
-        
+
     def toggle_level_assistant(self):
         """Toggle level assistant"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             self.level_assist_check.setChecked(not self.level_assist_check.isChecked())
             return
-            
+
         self.send_serial_command("level_assistant")
-        
+
     def toggle_speed_unit(self):
         """Toggle speed unit between km/h and mi/h"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             self.speed_unit_check.setChecked(not self.speed_unit_check.isChecked())
             return
-            
+
         self.send_serial_command("toggle_speed_unit")
-        
+
     def set_motor_pulley(self):
         """Set motor pulley teeth"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         teeth = self.pulley_spin.value()
         self.send_serial_command(f"set_motor_pulley {teeth}")
-        
+
     def set_wheel_pulley(self):
         """Set wheel pulley teeth"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         teeth = self.wheel_pulley_spin.value()
         self.send_serial_command(f"set_wheel_pulley {teeth}")
-        
+
     def set_wheel_size(self):
         """Set wheel diameter"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         size = self.wheel_spin.value()
         self.send_serial_command(f"set_wheel_size {size}")
-        
+
     def set_motor_poles(self):
         """Set motor poles"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         poles = self.poles_spin.value()
         self.send_serial_command(f"set_motor_poles {poles}")
-        
+
     def set_pid_kp(self):
         """Set PID Kp parameter"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         kp = self.pid_kp_spin.value()
         self.config['pid_kp'] = kp
         self.log_message(f"Setting PID Kp to {kp}...")
         self.send_serial_command(f"set_pid_kp {kp}")
-        
+
     def set_pid_ki(self):
         """Set PID Ki parameter"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         ki = self.pid_ki_spin.value()
         self.config['pid_ki'] = ki
         self.log_message(f"Setting PID Ki to {ki}...")
         self.send_serial_command(f"set_pid_ki {ki}")
-        
+
     def set_pid_kd(self):
         """Set PID Kd parameter"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         kd = self.pid_kd_spin.value()
         self.config['pid_kd'] = kd
         self.log_message(f"Setting PID Kd to {kd}...")
         self.send_serial_command(f"set_pid_kd {kd}")
-        
+
     def set_pid_output_max(self):
         """Set PID Output Max parameter"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         output_max = self.pid_output_max_spin.value()
         self.config['pid_output_max'] = output_max
         self.log_message(f"Setting PID Output Max to {output_max}...")
         self.send_serial_command(f"set_pid_output_max {output_max}")
-        
+
     def get_pid_params(self):
         """Get current PID parameters"""
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return
-            
+
         self.log_message("Requesting PID parameters...")
         self.send_serial_command("get_pid_params")
 
@@ -1132,8 +1210,12 @@ PID Output Max: {self.config['pid_output_max']}"""
 
         # Start a thread to check for updates after getting the version
         def check_updates():
-            time.sleep(2)  # Wait for version response
-            self.check_online_updates()
+            try:
+                time.sleep(2)  # Wait for version response
+                self.check_online_updates()
+            except Exception as e:
+                # Use signal to safely update UI from thread
+                self.flash_log_signal.emit(f"[ERROR] Update check failed: {str(e)}")
 
         thread = threading.Thread(target=check_updates, daemon=True)
         thread.start()
@@ -1141,7 +1223,7 @@ PID Output Max: {self.config['pid_output_max']}"""
     def check_online_updates(self):
         """Check for updates online"""
         try:
-            self.log_message("Checking for updates online...")
+            self.flash_log_signal.emit("Checking for updates online...")
 
             # GitHub API endpoint for releases
             repo_url = "https://api.github.com/repos/georgebenett/gb_remote/releases/latest"
@@ -1152,48 +1234,52 @@ PID Output Max: {self.config['pid_output_max']}"""
                 response.raise_for_status()
                 release_data = response.json()
                 latest_version = release_data['tag_name'].lstrip('v')  # Remove 'v' prefix if present
-                self.log_message(f"[INFO] Latest release found: {latest_version}")
+                self.flash_log_signal.emit(f"[INFO] Latest release found: {latest_version}")
             except requests.exceptions.RequestException as e:
-                self.log_message(f"[ERROR] Failed to fetch latest release: {str(e)}")
+                self.flash_log_signal.emit(f"[ERROR] Failed to fetch latest release: {str(e)}")
                 return
             except KeyError as e:
-                self.log_message(f"[ERROR] Invalid release data format: {str(e)}")
+                self.flash_log_signal.emit(f"[ERROR] Invalid release data format: {str(e)}")
                 return
 
             current_version = self.config.get('firmware_version', 'Unknown')
 
             if current_version == 'Unknown':
-                self.log_message(f"[INFO] Current version: {current_version}")
-                self.log_message(f"[INFO] Could not determine current firmware version")
+                self.flash_log_signal.emit(f"[INFO] Current version: {current_version}")
+                self.flash_log_signal.emit(f"[INFO] Could not determine current firmware version")
                 return
 
             try:
                 # Compare versions using packaging library
                 if version.parse(current_version) < version.parse(latest_version):
-                    self.log_message(f"[UPDATE AVAILABLE] Current: {current_version}, Latest: {latest_version}")
+                    self.flash_log_signal.emit(f"[UPDATE AVAILABLE] Current: {current_version}, Latest: {latest_version}")
 
-                    # Show update dialog
-                    result = QMessageBox.question(
-                        self,
-                        "Firmware Update Available",
-                        f"New firmware version {latest_version} is available!\n\n"
-                        f"Current version: {current_version}\n"
-                        f"Latest version: {latest_version}\n\n"
-                        "Would you like to download the update?",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.Yes
-                    )
-
-                    if result == QMessageBox.StandardButton.Yes:
-                        self.download_firmware_update(latest_version)
+                    # Show update dialog - this must be called from main thread
+                    QTimer.singleShot(0, lambda: self.show_update_dialog(current_version, latest_version))
                 else:
-                    self.log_message(f"[UP TO DATE] Current version {current_version} is the latest")
+                    self.flash_log_signal.emit(f"[UP TO DATE] Current version {current_version} is the latest")
 
             except Exception as e:
-                self.log_message(f"[ERROR] Version comparison failed: {str(e)}")
+                self.flash_log_signal.emit(f"[ERROR] Version comparison failed: {str(e)}")
 
         except Exception as e:
-            self.log_message(f"[ERROR] Update check failed: {str(e)}")
+            self.flash_log_signal.emit(f"[ERROR] Update check failed: {str(e)}")
+
+    def show_update_dialog(self, current_version, latest_version):
+        """Show update dialog in main thread"""
+        result = QMessageBox.question(
+            self,
+            "Firmware Update Available",
+            f"New firmware version {latest_version} is available!\n\n"
+            f"Current version: {current_version}\n"
+            f"Latest version: {latest_version}\n\n"
+            "Would you like to download the update?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+
+        if result == QMessageBox.StandardButton.Yes:
+            self.download_firmware_update(latest_version)
 
     def download_firmware_update(self, version):
         """Download firmware update"""
@@ -1500,7 +1586,7 @@ PID Output Max: {self.config['pid_output_max']}"""
                     time.sleep(1)
 
                 self.flash_log_signal.emit(f"[INFO] Ready to reconnect - click 'Connect' when ready")
-                
+
                 # Emit success signal instead of showing dialog directly
                 self.flash_complete_signal.emit(True, "Firmware flashed successfully!")
             else:
@@ -1510,7 +1596,7 @@ PID Output Max: {self.config['pid_output_max']}"""
         except Exception as e:
             self.flash_log_signal.emit(f"[ERROR] Flashing error: {str(e)}")
             self.flash_complete_signal.emit(False, f"An error occurred during flashing:\n{str(e)}")
-    
+
     def on_flash_complete(self, success, message):
         """Handle flash completion in main thread"""
         if success:
@@ -1633,14 +1719,14 @@ PID Output Max: {self.config['pid_output_max']}"""
 
 def main():
     app = QApplication(sys.argv)
-    
+
     # Set application style
     app.setStyle('Fusion')
-    
+
     # Create and show main window
     window = ESP32ControllerQt()
     window.show()
-    
+
     # Start event loop
     sys.exit(app.exec())
 
