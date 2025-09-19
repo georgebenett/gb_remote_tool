@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Hand Controller Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .config-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+        }
+
+        .status-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+        }
+
+        .connection-status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .log-area {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            height: 450px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        .log-entry {
+            margin-bottom: 2px;
+        }
+
+        .log-ok {
+            color: #68d391;
+        }
+
+        .log-error {
+            color: #fc8181;
+        }
+
+        .log-progress {
+            color: #fbb6ce;
+        }
+
+        .log-status {
+            color: #90cdf4;
+        }
+
+        .log-safety {
+            color: #f6ad55;
+        }
+
+        .log-sent {
+            color: #a0aec0;
+        }
+
+        .log-command {
+            color: #c6f6d5;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .firmware-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .actions-section {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .download-progress {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .firmware-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>GB Remote Lite Config tool</h1>
+            <p>Configure your ESP32 hand controller via USB serial connection</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Configuration Panel -->
+            <div class="config-panel">
+                <div class="section">
+                    <h3>🔌 Connection</h3>
+                    <div id="connectionStatus" class="connection-status disconnected">
+                        Not Connected
+                    </div>
+                    <button id="connectBtn" class="btn">Connect to remote</button>
+                    <button id="disconnectBtn" class="btn btn-secondary" disabled>Disconnect</button>
+                </div>
+
+                <div class="section">
+                    <h3>⚙️ Basic Configuration</h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="motorPulley">Motor Pulley Teeth:</label>
+                            <input type="number" id="motorPulley" value="15" min="1" max="255">
+                            <button class="btn" onclick="setMotorPulley()">Set</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="wheelPulley">Wheel Pulley Teeth:</label>
+                            <input type="number" id="wheelPulley" value="33" min="1" max="255">
+                            <button class="btn" onclick="setWheelPulley()">Set</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="wheelDiameter">Wheel Diameter (mm):</label>
+                            <input type="number" id="wheelDiameter" value="115" min="1" max="255">
+                            <button class="btn" onclick="setWheelSize()">Set</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="motorPoles">Motor Poles:</label>
+                            <input type="number" id="motorPoles" value="14" min="1" max="255">
+                            <button class="btn" onclick="setMotorPoles()">Set</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>🎛️ PID Tuning</h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="pidKp">Kp (Proportional):</label>
+                            <input type="number" id="pidKp" value="0.8" step="0.1" min="0" max="10">
+                            <button class="btn" onclick="setPidKp()">Set</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="pidKi">Ki (Integral):</label>
+                            <input type="number" id="pidKi" value="0.5" step="0.01" min="0" max="2">
+                            <button class="btn" onclick="setPidKi()">Set</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="pidKd">Kd (Derivative):</label>
+                            <input type="number" id="pidKd" value="0.05" step="0.01" min="0" max="1">
+                            <button class="btn" onclick="setPidKd()">Set</button>
+                        </div>
+                        <div class="form-group">
+                            <label for="pidOutputMax">Output Max:</label>
+                            <input type="number" id="pidOutputMax" value="48.0" step="1" min="10" max="100">
+                            <button class="btn" onclick="setPidOutputMax()">Set</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-success" onclick="getPidParams()">Get PID Parameters</button>
+                        <button class="btn btn-warning" onclick="loadPidDefaults()">Load Defaults</button>
+                    </div>
+                </div>
+
+                <div class="firmware-section">
+                    <h3>📱 Firmware Management</h3>
+                    <div class="form-group">
+                        <label for="firmwareFile">Select Firmware File:</label>
+                        <input type="file" id="firmwareFile" accept=".bin">
+                    </div>
+                    
+                    <div class="download-progress" id="downloadProgress">
+                        <div>Downloading firmware...</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div id="downloadStatus">Preparing download...</div>
+                    </div>
+
+                    <div class="firmware-info" id="firmwareInfo">
+                        <h4>📦 Firmware Information</h4>
+                        <div id="firmwareDetails"></div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-info" onclick="downloadLatestFirmware()">Download Latest</button>
+                        <button class="btn btn-success" onclick="flashFirmware()">Flash Firmware</button>
+                        <button class="btn" onclick="getFirmwareVersion()">Get Version</button>
+                        <button class="btn btn-warning" onclick="checkFirmwareUpdate()">Check Updates</button>
+                    </div>
+                </div>
+
+                <div class="actions-section">
+                    <h3>🔧 Actions</h3>
+                    <div class="grid-2">
+                        <button class="btn" onclick="getConfig()">Get Config</button>
+                        <button class="btn btn-warning" onclick="resetOdometer()">Reset Odometer</button>
+                        <button class="btn btn-success" onclick="calibrateThrottle()">Calibrate Throttle</button>
+                        <button class="btn" onclick="getCalibration()">Get Calibration</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Panel -->
+            <div class="status-panel">
+                <div class="section">
+                    <h3>📊 Status & Logs</h3>
+                    <div id="logArea" class="log-area">
+GB Remote Lite Config tool
+Ready to connect...
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>ℹ️ Device Info</h3>
+                    <div id="deviceInfo">
+                        <div><strong>Status:</strong> <span id="deviceStatus">Disconnected</span></div>
+                        <div><strong>Firmware:</strong> <span id="firmwareVersion">Unknown</span></div>
+                        <div><strong>BLE:</strong> <span id="bleStatus">Unknown</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let serialPort = null;
+        let reader = null;
+        let writer = null;
+        let isConnected = false;
+
+        // DOM elements
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const logArea = document.getElementById('logArea');
+        const downloadProgress = document.getElementById('downloadProgress');
+        const progressFill = document.getElementById('progressFill');
+        const downloadStatus = document.getElementById('downloadStatus');
+        const firmwareInfo = document.getElementById('firmwareInfo');
+        const firmwareDetails = document.getElementById('firmwareDetails');
+
+        // Check Web Serial API support
+        if (!('serial' in navigator)) {
+            logMessage('❌ Web Serial API not supported in this browser. Please use Chrome or Edge.');
+            connectBtn.disabled = true;
+        }
+
+        // Connection functions
+        async function connectToESP32() {
+            try {
+                // Request port access
+                serialPort = await navigator.serial.requestPort();
+                
+                // Open port with ESP32 settings
+                await serialPort.open({ 
+                    baudRate: 115200,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none'
+                });
+
+                // Setup reader and writer
+                reader = serialPort.readable.getReader();
+                writer = serialPort.writable.getWriter();
+
+                // Update UI
+                isConnected = true;
+                updateConnectionStatus(true);
+                logMessage('✅ Connected to ESP32');
+
+                // Start reading data
+                readSerialData();
+
+            } catch (error) {
+                logMessage('❌ Connection failed: ' + error.message);
+            }
+        }
+
+        async function disconnectFromESP32() {
+            try {
+                if (reader) {
+                    reader.releaseLock();
+                }
+                if (writer) {
+                    writer.releaseLock();
+                }
+                if (serialPort) {
+                    await serialPort.close();
+                }
+
+                isConnected = false;
+                updateConnectionStatus(false);
+                logMessage('🔌 Disconnected from ESP32');
+
+            } catch (error) {
+                logMessage('❌ Disconnect error: ' + error.message);
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.textContent = 'Connected';
+                connectionStatus.className = 'connection-status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            } else {
+                connectionStatus.textContent = 'Not Connected';
+                connectionStatus.className = 'connection-status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            }
+        }
+
+        // Serial communication functions
+        async function sendCommand(command) {
+            if (!isConnected || !writer) {
+                logMessage('❌ Not connected to ESP32');
+                return false;
+            }
+
+            try {
+                const data = new TextEncoder().encode(command + '\n');
+                await writer.write(data);
+                logMessage('  Sent: ' + command, 'sent');
+                return true;
+            } catch (error) {
+                logMessage('❌ Send error: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        async function readSerialData() {
+            try {
+                while (isConnected && reader) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const text = new TextDecoder().decode(value);
+                    const lines = text.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            logMessage(line.trim());
+                            parseResponse(line.trim());
+                        }
+                    }
+                }
+            } catch (error) {
+                if (isConnected) {
+                    logMessage('❌ Read error: ' + error.message, 'error');
+                }
+            }
+        }
+
+        function parseResponse(response) {
+            // Parse configuration responses
+            if (response.includes('Motor pulley teeth set to:')) {
+                const teeth = parseInt(response.match(/\d+/)[0]);
+                document.getElementById('motorPulley').value = teeth;
+            }
+            if (response.includes('Wheel pulley teeth set to:')) {
+                const teeth = parseInt(response.match(/\d+/)[0]);
+                document.getElementById('wheelPulley').value = teeth;
+            }
+            if (response.includes('Wheel diameter set to:')) {
+                const diameter = parseInt(response.match(/\d+/)[0]);
+                document.getElementById('wheelDiameter').value = diameter;
+            }
+            if (response.includes('Motor poles set to:')) {
+                const poles = parseInt(response.match(/\d+/)[0]);
+                document.getElementById('motorPoles').value = poles;
+            }
+            if (response.includes('PID Kp set to:')) {
+                const kp = parseFloat(response.match(/[\d.]+/)[0]);
+                document.getElementById('pidKp').value = kp;
+            }
+            if (response.includes('PID Ki set to:')) {
+                const ki = parseFloat(response.match(/[\d.]+/)[0]);
+                document.getElementById('pidKi').value = ki;
+            }
+            if (response.includes('PID Kd set to:')) {
+                const kd = parseFloat(response.match(/[\d.]+/)[0]);
+                document.getElementById('pidKd').value = kd;
+            }
+            if (response.includes('PID Output Max set to:')) {
+                const outputMax = parseFloat(response.match(/[\d.]+/)[0]);
+                document.getElementById('pidOutputMax').value = outputMax;
+            }
+            
+            // Parse firmware version
+            if (response.includes('Firmware version:') || response.includes('Firmware Version:')) {
+                try {
+                    const versionText = response.split(':')[1].trim();
+                    document.getElementById('firmwareVersion').textContent = versionText;
+                    logMessage(`[INFO] Firmware version: ${versionText}`, 'status');
+                } catch (e) {
+                    logMessage('[ERROR] Could not parse firmware version', 'error');
+                }
+            }
+        }
+
+        // Enhanced log message function matching PyQt formatting
+        function logMessage(message, type = 'default') {
+            const timestamp = new Date().toLocaleTimeString();
+            let formattedMessage = '';
+            let messageType = type;
+
+            // Format different types of messages exactly like PyQt version
+            if (message.startsWith('Sent:')) {
+                formattedMessage = `  ${message}`;
+                messageType = 'sent';
+            } else if (message.includes('set to:')) {
+                formattedMessage = `[OK] ${message}`;
+                messageType = 'ok';
+            } else if (message.includes('Throttle inversion:')) {
+                const status = message.includes('ENABLED') ? 'enabled' : 'disabled';
+                formattedMessage = `[OK] Throttle inversion: ${status}`;
+                messageType = 'ok';
+            } else if (message.includes('Level assistant:')) {
+                const status = message.includes('ENABLED') ? 'enabled' : 'disabled';
+                formattedMessage = `[OK] Level assistant: ${status}`;
+                messageType = 'ok';
+            } else if (message.includes('Odometer reset')) {
+                formattedMessage = `[OK] ${message}`;
+                messageType = 'ok';
+            } else if (message.includes('Unknown command:')) {
+                formattedMessage = `[ERROR] ${message}`;
+                messageType = 'error';
+            } else if (message.includes('=== Hand Controller Commands ===')) {
+                formattedMessage = message;
+                messageType = 'default';
+            } else if (['invert_throttle', 'level_assistant', 'reset_odometer', 'set_motor_pulley',
+                       'set_wheel_pulley', 'set_wheel_size', 'set_motor_poles', 'get_config'].some(cmd => message.includes(cmd))) {
+                formattedMessage = `  ${message}`;
+                messageType = 'command';
+            } else if (message.includes('calibrate_throttle') && message.includes('Manually calibrate throttle range')) {
+                formattedMessage = `  ${message}`;
+                messageType = 'command';
+            } else if (message.includes('get_calibration') && message.includes('Show throttle calibration status')) {
+                formattedMessage = `  ${message}`;
+                messageType = 'command';
+            } else if (message.includes('Calibration progress:')) {
+                formattedMessage = `[PROGRESS] ${message}`;
+                messageType = 'progress';
+            } else if (message.includes('Calibration complete!')) {
+                formattedMessage = `[OK] ${message}`;
+                messageType = 'ok';
+            } else if (message.includes('Calibration failed')) {
+                formattedMessage = `[ERROR] ${message}`;
+                messageType = 'error';
+            } else if (message.includes('Raw range:') || message.includes('Calibrated range:')) {
+                formattedMessage = `  ${message}`;
+                messageType = 'default';
+            } else if (message.includes('Calibration Status:')) {
+                formattedMessage = `[STATUS] ${message}`;
+                messageType = 'status';
+            } else if (message.includes('Current ADC Reading:') || message.includes('Current Mapped Value:')) {
+                formattedMessage = `  ${message}`;
+                messageType = 'default';
+            } else if (message.includes('Throttle signals were set to neutral during calibration')) {
+                formattedMessage = `[SAFETY] ${message}`;
+                messageType = 'safety';
+            } else if (message.includes('Calibrated Min Value:') || message.includes('Calibrated Max Value:') || message.includes('Calibrated Range:')) {
+                formattedMessage = `  ${message}`;
+                messageType = 'default';
+            } else {
+                formattedMessage = message;
+                messageType = 'default';
+            }
+
+            // Create log entry with proper styling
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${messageType}`;
+            logEntry.textContent = formattedMessage;
+            
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // Configuration functions - using exact same commands as PyQt version
+        function setMotorPulley() {
+            const value = document.getElementById('motorPulley').value;
+            sendCommand(`set_motor_pulley ${value}`);
+        }
+
+        function setWheelPulley() {
+            const value = document.getElementById('wheelPulley').value;
+            sendCommand(`set_wheel_pulley ${value}`);
+        }
+
+        function setWheelSize() {
+            const value = document.getElementById('wheelDiameter').value;
+            sendCommand(`set_wheel_size ${value}`);
+        }
+
+        function setMotorPoles() {
+            const value = document.getElementById('motorPoles').value;
+            sendCommand(`set_motor_poles ${value}`);
+        }
+
+        function setPidKp() {
+            const value = document.getElementById('pidKp').value;
+            sendCommand(`set_pid_kp ${value}`);
+        }
+
+        function setPidKi() {
+            const value = document.getElementById('pidKi').value;
+            sendCommand(`set_pid_ki ${value}`);
+        }
+
+        function setPidKd() {
+            const value = document.getElementById('pidKd').value;
+            sendCommand(`set_pid_kd ${value}`);
+        }
+
+        function setPidOutputMax() {
+            const value = document.getElementById('pidOutputMax').value;
+            sendCommand(`set_pid_output_max ${value}`);
+        }
+
+        function getPidParams() {
+            sendCommand('get_pid_params');
+        }
+
+        function loadPidDefaults() {
+            document.getElementById('pidKp').value = 0.8;
+            document.getElementById('pidKi').value = 0.5;
+            document.getElementById('pidKd').value = 0.05;
+            document.getElementById('pidOutputMax').value = 48.0;
+            logMessage(' PID defaults loaded');
+        }
+
+        function getConfig() {
+            sendCommand('get_config');
+        }
+
+        function resetOdometer() {
+            if (confirm('Are you sure you want to reset the odometer?')) {
+                sendCommand('reset_odometer');
+            }
+        }
+
+        function calibrateThrottle() {
+            sendCommand('calibrate_throttle');
+        }
+
+        function getCalibration() {
+            sendCommand('get_calibration');
+        }
+
+        function getFirmwareVersion() {
+            sendCommand('get_firmware_version');
+        }
+
+        // Firmware download functions
+        async function downloadLatestFirmware() {
+            try {
+                logMessage('[INFO] Downloading latest firmware...', 'status');
+                downloadProgress.style.display = 'block';
+                progressFill.style.width = '0%';
+                downloadStatus.textContent = 'Preparing download...';
+
+                // Get latest release information
+                const repoUrl = 'https://api.github.com/repos/georgebenett/gb_remote/releases/latest';
+                const response = await fetch(repoUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const releaseData = await response.json();
+                const latestVersion = releaseData.tag_name.replace('v', ''); // Remove 'v' prefix
+                
+                logMessage(`[INFO] Latest release found: ${latestVersion}`, 'status');
+                downloadStatus.textContent = `Found version ${latestVersion}...`;
+
+                // Find firmware binary
+                const assets = releaseData.assets || [];
+                const firmwareAssets = assets.filter(asset => asset.name.endsWith('.bin'));
+
+                if (firmwareAssets.length === 0) {
+                    throw new Error('No firmware binary found in latest release');
+                }
+
+                // Use the first firmware binary found
+                const firmwareAsset = firmwareAssets[0];
+                const downloadUrl = firmwareAsset.browser_download_url;
+                const filename = firmwareAsset.name;
+
+                logMessage(`[INFO] Downloading ${filename}...`, 'status');
+                downloadStatus.textContent = `Downloading ${filename}...`;
+                progressFill.style.width = '25%';
+
+                // Download the firmware
+                const firmwareResponse = await fetch(downloadUrl);
+                if (!firmwareResponse.ok) {
+                    throw new Error(`Failed to download firmware: ${firmwareResponse.status}`);
+                }
+
+                progressFill.style.width = '50%';
+                downloadStatus.textContent = 'Processing download...';
+
+                const firmwareBlob = await firmwareResponse.blob();
+                const firmwareArrayBuffer = await firmwareBlob.arrayBuffer();
+
+                progressFill.style.width = '75%';
+                downloadStatus.textContent = 'Saving firmware...';
+
+                // Create download link
+                const blob = new Blob([firmwareArrayBuffer], { type: 'application/octet-stream' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                progressFill.style.width = '100%';
+                downloadStatus.textContent = 'Download complete!';
+                
+                logMessage(`[SUCCESS] Firmware downloaded: ${filename}`, 'ok');
+                
+                // Show firmware information
+                showFirmwareInfo(releaseData, firmwareAsset);
+
+                // Auto-hide progress after 3 seconds
+                setTimeout(() => {
+                    downloadProgress.style.display = 'none';
+                }, 3000);
+
+            } catch (error) {
+                logMessage(`[ERROR] Failed to download firmware: ${error.message}`, 'error');
+                downloadStatus.textContent = `Error: ${error.message}`;
+                progressFill.style.width = '0%';
+            }
+        }
+
+        function showFirmwareInfo(releaseData, firmwareAsset) {
+            const releaseName = releaseData.name || `Release ${releaseData.tag_name}`;
+            const releaseNotes = releaseData.body || 'No release notes available';
+            const downloadUrl = `https://github.com/georgebenett/gb_remote/releases/tag/${releaseData.tag_name}`;
+            
+            firmwareDetails.innerHTML = `
+                <div><strong>Version:</strong> ${releaseData.tag_name}</div>
+                <div><strong>Name:</strong> ${releaseName}</div>
+                <div><strong>File:</strong> ${firmwareAsset.name} (${(firmwareAsset.size / 1024 / 1024).toFixed(2)} MB)</div>
+                <div><strong>Downloaded:</strong> ${new Date().toLocaleString()}</div>
+                <div style="margin-top: 10px;">
+                    <strong>Release Notes:</strong><br>
+                    <div style="max-height: 100px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 5px;">
+                        ${releaseNotes.substring(0, 500)}${releaseNotes.length > 500 ? '...' : ''}
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <a href="${downloadUrl}" target="_blank" style="color: #007bff; text-decoration: none;">
+                        🔗 View on GitHub
+                    </a>
+                </div>
+            `;
+            
+            firmwareInfo.style.display = 'block';
+        }
+
+        async function checkFirmwareUpdate() {
+            try {
+                logMessage('[INFO] Checking for firmware updates...', 'status');
+                
+                // Get current firmware version from device
+                if (isConnected) {
+                    sendCommand('get_firmware_version');
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for response
+                }
+
+                // Get latest release information
+                const repoUrl = 'https://api.github.com/repos/georgebenett/gb_remote/releases/latest';
+                const response = await fetch(repoUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const releaseData = await response.json();
+                const latestVersion = releaseData.tag_name.replace('v', '');
+                const currentVersion = document.getElementById('firmwareVersion').textContent;
+
+                logMessage(`[INFO] Current version: ${currentVersion}`, 'status');
+                logMessage(`[INFO] Latest version: ${latestVersion}`, 'status');
+
+                if (currentVersion === 'Unknown') {
+                    logMessage('[WARNING] Could not determine current firmware version', 'warning');
+                    return;
+                }
+
+                // Simple version comparison (you might want to use a proper version comparison library)
+                if (currentVersion !== latestVersion) {
+                    logMessage(`[UPDATE AVAILABLE] Current: ${currentVersion}, Latest: ${latestVersion}`, 'progress');
+                    logMessage(`[INFO] Visit: https://github.com/georgebenett/gb_remote/releases/tag/${releaseData.tag_name}`, 'status');
+                } else {
+                    logMessage(`[UP TO DATE] Current version ${currentVersion} is the latest`, 'ok');
+                }
+
+            } catch (error) {
+                logMessage(`[ERROR] Update check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function flashFirmware() {
+            const fileInput = document.getElementById('firmwareFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                logMessage('❌ Please select a firmware file', 'error');
+                return;
+            }
+
+            logMessage('📱 Flashing firmware... (This feature requires additional implementation)', 'progress');
+            // Note: Actual firmware flashing would require more complex implementation
+            // This would need to integrate with esptool or similar flashing tools
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connectToESP32);
+        disconnectBtn.addEventListener('click', disconnectFromESP32);
+
+        // Initialize
+        logMessage('🌐 GB Remote Lite Config tool loaded');
+        logMessage(' Connect your ESP32 via USB and click "Connect to remote"');
+    </script>
+</body>
+</html>

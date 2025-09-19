@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ESP32 Hand Controller Configuration Interface - Qt Version
+GB Remote Lite Config tool - Qt Version
 A modern GUI application to configure hand controller settings via USB serial
 """
 
@@ -265,7 +265,7 @@ class ESP32ControllerQt(QMainWindow):
 
     def setup_ui(self):
         """Setup the user interface"""
-        self.setWindowTitle("ESP32 Hand Controller Configuration - Qt")
+        self.setWindowTitle("GB Remote Lite Config tool - Qt")
         self.setMinimumSize(1200, 1100)
         self.resize(1500, 1100)
 
@@ -726,7 +726,7 @@ class ESP32ControllerQt(QMainWindow):
         """Connect to ESP32"""
         port = self.port_combo.currentText()
         if self.serial_worker.connect(port):
-            self.log_message("Connected to ESP32 Hand Controller")
+            self.log_message("Connected to GB Remote Lite")
             # Wait for ESP32 to be ready and clear any startup messages
             time.sleep(1.0)
         else:
@@ -735,7 +735,7 @@ class ESP32ControllerQt(QMainWindow):
     def disconnect(self):
         """Disconnect from ESP32"""
         self.serial_worker.disconnect()
-        self.log_message("Disconnected from ESP32")
+        self.log_message("Disconnected from GB Remote Lite")
 
     def on_connection_changed(self, connected):
         """Handle connection state change"""
