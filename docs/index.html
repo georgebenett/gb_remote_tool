@@ -305,6 +305,21 @@
             padding: 15px;
             margin: 10px 0;
         }
+
+        .flashing-active {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -386,7 +401,7 @@
                     <h3>📱 Firmware Management</h3>
                     <div class="form-group">
                         <label for="firmwareFile">Select Firmware File:</label>
-                        <input type="file" id="firmwareFile" accept=".bin">
+                        <input type="file" id="firmwareFile" accept=".bin" onchange="handleFirmwareFileSelect()">
                     </div>
                     
                     <div class="download-progress" id="downloadProgress">
@@ -415,7 +430,7 @@
 
                     <div style="margin-top: 15px;">
                         <button class="btn btn-info" onclick="downloadLatestFirmware()">Download Latest</button>
-                        <button class="btn btn-success" onclick="flashFirmware()">Flash Firmware</button>
+                        <button class="btn btn-success" id="flashBtn" onclick="flashFirmware()" disabled>Select Firmware First</button>
                         <button class="btn" onclick="getFirmwareVersion()">Get Version</button>
                         <button class="btn btn-warning" onclick="checkFirmwareUpdate()">Check Updates</button>
                     </div>
@@ -454,12 +469,19 @@ Ready to connect...
         </div>
     </div>
 
+    <!-- esptool-js library -->
+    <script src="https://unpkg.com/esptool-js/lib/index.js"></script>
+    
     <script>
         // Global variables
         let serialPort = null;
         let reader = null;
         let writer = null;
         let isConnected = false;
+        
+        // ESP32 flashing variables
+        let espLoader = null;
+        let isFlashing = false;
 
         // DOM elements
         const connectionStatus = document.getElementById('connectionStatus');
@@ -478,6 +500,25 @@ Ready to connect...
             logMessage('❌ Web Serial API not supported in this browser. Please use Chrome or Edge.');
             connectBtn.disabled = true;
         }
+
+        // Terminal interface for esptool-js
+        const espLoaderTerminal = {
+            clean() {
+                // Clear the log area when starting a new operation
+                logArea.innerHTML = '';
+            },
+            writeLine(data) {
+                logMessage(data, 'status');
+            },
+            write(data) {
+                // Write data without newline
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry log-status';
+                logEntry.textContent = data;
+                logArea.appendChild(logEntry);
+                logArea.scrollTop = logArea.scrollHeight;
+            }
+        };
 
         // Connection functions
         async function connectToESP32() {
@@ -835,8 +876,191 @@ Ready to connect...
                 return;
             }
 
-            logMessage('📱 Flashing firmware... (This feature requires additional implementation)', 'progress');
-            // Note: Actual firmware flashing would require more complex implementation
+            if (isFlashing) {
+                logMessage('❌ Flashing already in progress', 'error');
+                return;
+            }
+
+            // Confirm flashing
+            if (!confirm(`Are you sure you want to flash firmware to ESP32?\n\nFile: ${file.name}\nSize: ${(file.size / 1024).toFixed(1)} KB\n\nWARNING: This will overwrite the current firmware!`)) {
+                return;
+            }
+
+            try {
+                isFlashing = true;
+                const flashBtn = document.getElementById('flashBtn');
+                flashBtn.disabled = true;
+                flashBtn.textContent = 'Flashing...';
+                flashBtn.className = 'btn btn-warning';
+                
+                logMessage('🚀 Starting firmware flashing process...', 'progress');
+                
+                // Disconnect from current serial connection if connected
+                if (isConnected) {
+                    logMessage('📡 Disconnecting from current serial connection...', 'status');
+                    await disconnectFromESP32();
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for port to be released
+                }
+
+                // Request port access for flashing
+                logMessage('🔌 Requesting port access for flashing...', 'status');
+                const port = await navigator.serial.requestPort();
+                
+                // Open port for flashing
+                await port.open({ 
+                    baudRate: 115200,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none'
+                });
+
+                logMessage('✅ Port opened for flashing', 'ok');
+
+                // Initialize ESPLoader
+                logMessage('🔧 Initializing ESP32 loader...', 'status');
+                espLoader = new ESPLoader(port, 115200, espLoaderTerminal);
+                
+                // Connect to ESP32
+                logMessage('🔗 Connecting to ESP32...', 'status');
+                const chip = await espLoader.main();
+                
+                if (!chip) {
+                    throw new Error('Failed to connect to ESP32');
+                }
+
+                logMessage(`✅ Connected to ${chip.CHIP_NAME} (${chip.CHIP_NAME})`, 'ok');
+                logMessage(`📊 Flash size: ${chip.FLASH_SIZES[chip.FLASH_SIZE] || 'Unknown'}`, 'status');
+                logMessage(`🔧 Flash mode: ${chip.FLASH_MODES[chip.FLASH_MODE] || 'Unknown'}`, 'status');
+
+                // Read firmware file
+                logMessage('📁 Reading firmware file...', 'status');
+                const firmwareData = await readFileAsArrayBuffer(file);
+                
+                // Determine flash offset (0x10000 for ESP32 application firmware)
+                const flashOffset = 0x10000;
+                logMessage(`📍 Flash offset: 0x${flashOffset.toString(16).toUpperCase()}`, 'status');
+
+                // Erase flash
+                logMessage('🗑️ Erasing flash memory...', 'status');
+                await espLoader.erase_flash();
+                logMessage('✅ Flash erased successfully', 'ok');
+
+                // Write firmware
+                logMessage('📝 Writing firmware to flash...', 'status');
+                const writeResult = await espLoader.write_flash(flashOffset, firmwareData, true, true);
+                
+                if (writeResult) {
+                    logMessage('✅ Firmware written successfully', 'ok');
+                } else {
+                    throw new Error('Failed to write firmware');
+                }
+
+                // Verify firmware
+                logMessage('🔍 Verifying firmware...', 'status');
+                const verifyResult = await espLoader.verify_flash(flashOffset, firmwareData);
+                
+                if (verifyResult) {
+                    logMessage('✅ Firmware verification successful', 'ok');
+                } else {
+                    logMessage('⚠️ Firmware verification failed, but flashing may have succeeded', 'warning');
+                }
+
+                // Reset ESP32
+                logMessage('🔄 Resetting ESP32...', 'status');
+                await espLoader.hard_reset();
+                
+                // Close port
+                await port.close();
+                
+                logMessage('🎉 Firmware flashing completed successfully!', 'ok');
+                logMessage('📱 ESP32 is now running the new firmware', 'status');
+                logMessage('💡 Click "Connect to Remote" to reconnect and verify the new firmware', 'status');
+
+            } catch (error) {
+                logMessage(`❌ Flashing failed: ${error.message}`, 'error');
+                console.error('Flashing error:', error);
+                
+                // Try to close port if open
+                try {
+                    if (port && port.readable) {
+                        await port.close();
+                    }
+                } catch (closeError) {
+                    console.error('Error closing port:', closeError);
+                }
+            } finally {
+                isFlashing = false;
+                const flashBtn = document.getElementById('flashBtn');
+                const fileInput = document.getElementById('firmwareFile');
+                
+                if (fileInput.files[0]) {
+                    flashBtn.disabled = false;
+                    flashBtn.textContent = 'Flash Firmware';
+                    flashBtn.className = 'btn btn-success';
+                } else {
+                    flashBtn.disabled = true;
+                    flashBtn.textContent = 'Select Firmware First';
+                    flashBtn.className = 'btn btn-success';
+                }
+            }
+        }
+
+        // Helper function to read file as ArrayBuffer
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Handle firmware file selection
+        function handleFirmwareFileSelect() {
+            const fileInput = document.getElementById('firmwareFile');
+            const file = fileInput.files[0];
+            const firmwareInfo = document.getElementById('firmwareInfo');
+            const firmwareDetails = document.getElementById('firmwareDetails');
+            const flashBtn = document.querySelector('button[onclick="flashFirmware()"]');
+            
+            if (file) {
+                // Validate file type
+                if (!file.name.toLowerCase().endsWith('.bin')) {
+                    logMessage('❌ Please select a .bin firmware file', 'error');
+                    fileInput.value = '';
+                    return;
+                }
+                
+                // Validate file size (reasonable limits for ESP32 firmware)
+                const maxSize = 4 * 1024 * 1024; // 4MB
+                if (file.size > maxSize) {
+                    logMessage('❌ Firmware file is too large (max 4MB)', 'error');
+                    fileInput.value = '';
+                    return;
+                }
+                
+                // Display file information
+                const fileSizeKB = (file.size / 1024).toFixed(1);
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                const sizeText = file.size > 1024 * 1024 ? `${fileSizeMB} MB` : `${fileSizeKB} KB`;
+                
+                firmwareDetails.innerHTML = `
+                    <div><strong>File:</strong> ${file.name}</div>
+                    <div><strong>Size:</strong> ${sizeText}</div>
+                    <div><strong>Type:</strong> ESP32 Firmware Binary</div>
+                    <div><strong>Status:</strong> Ready to flash</div>
+                `;
+                
+                firmwareInfo.style.display = 'block';
+                flashBtn.disabled = false;
+                flashBtn.textContent = 'Flash Firmware';
+                
+                logMessage(`📁 Firmware file selected: ${file.name} (${sizeText})`, 'ok');
+            } else {
+                firmwareInfo.style.display = 'none';
+                flashBtn.disabled = true;
+                flashBtn.textContent = 'Select Firmware First';
+            }
         }
 
         // Event listeners
