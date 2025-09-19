@@ -60,6 +60,11 @@ class SerialWorker(QThread):
                 timeout=1,
                 write_timeout=1
             )
+            # Clear any startup data
+            self.serial_port.reset_input_buffer()
+            self.serial_port.reset_output_buffer()
+            # Wait a moment for the connection to stabilize
+            time.sleep(0.5)
             self.is_connected = True
             self.connection_changed.emit(True)
             return True
@@ -82,7 +87,12 @@ class SerialWorker(QThread):
         """Send command via serial"""
         if self.is_connected and self.serial_port:
             try:
+                # Clear any pending input
+                self.serial_port.reset_input_buffer()
+                # Send the command
                 self.serial_port.write(f"{command}\n".encode())
+                # Ensure data is sent
+                self.serial_port.flush()
                 return True
             except:
                 return False
@@ -411,8 +421,6 @@ class ESP32ControllerQt(QMainWindow):
         help_btn.clicked.connect(self.show_throttle_help)
         throttle_layout.addWidget(help_btn)
 
-        throttle_layout.addStretch()
-
         self.throttle_check = QCheckBox("Inverted (like Boosted boards)")
         self.throttle_check.toggled.connect(self.toggle_throttle)
         throttle_layout.addWidget(self.throttle_check)
@@ -432,8 +440,6 @@ class ESP32ControllerQt(QMainWindow):
         level_help_btn.clicked.connect(self.show_level_assistant_help)
         level_layout.addWidget(level_help_btn)
 
-        level_layout.addStretch()
-
         self.level_assist_check = QCheckBox("Enabled")
         self.level_assist_check.toggled.connect(self.toggle_level_assistant)
         level_layout.addWidget(self.level_assist_check)
@@ -452,8 +458,6 @@ class ESP32ControllerQt(QMainWindow):
         speed_help_btn.setStyleSheet(help_btn.styleSheet())
         speed_help_btn.clicked.connect(self.show_speed_unit_help)
         speed_layout.addWidget(speed_help_btn)
-
-        speed_layout.addStretch()
 
         self.speed_unit_check = QCheckBox("mi/h (unchecked = km/h)")
         self.speed_unit_check.toggled.connect(self.toggle_speed_unit)
@@ -636,7 +640,6 @@ class ESP32ControllerQt(QMainWindow):
             ("Get Config", self.get_config),
             ("Calibrate Throttle", self.calibrate_throttle),
             ("Get Calibration", self.get_calibration),
-            ("Help", self.show_help),
         ]
 
         for i, (text, command) in enumerate(buttons):
@@ -670,25 +673,6 @@ class ESP32ControllerQt(QMainWindow):
         response_layout.addWidget(clear_btn)
 
         layout.addWidget(response_group)
-
-        # Current configuration display
-        config_group = ModernGroupBox("Current Configuration")
-        config_layout = QVBoxLayout(config_group)
-
-        self.config_display = QTextEdit()
-        self.config_display.setReadOnly(True)
-        self.config_display.setMaximumHeight(200)
-        self.config_display.setStyleSheet("""
-            QTextEdit {
-                background: #F8F9FA;
-                border: 1px solid #E0E0E0;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 11px;
-            }
-        """)
-        config_layout.addWidget(self.config_display)
-
-        layout.addWidget(config_group)
         parent.addWidget(response_widget)
 
     def setup_connections(self):
@@ -743,6 +727,8 @@ class ESP32ControllerQt(QMainWindow):
         port = self.port_combo.currentText()
         if self.serial_worker.connect(port):
             self.log_message("Connected to ESP32 Hand Controller")
+            # Wait for ESP32 to be ready and clear any startup messages
+            time.sleep(1.0)
         else:
             QMessageBox.critical(self, "Connection Error", "Failed to connect to ESP32")
 
@@ -767,6 +753,9 @@ class ESP32ControllerQt(QMainWindow):
         if not self.serial_worker.is_connected:
             QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
             return False
+
+        # Add small delay to ensure ESP32 is ready
+        time.sleep(0.1)
 
         if self.serial_worker.send_command(command):
             self.log_message(f"Sent: {command}")
@@ -931,7 +920,6 @@ class ESP32ControllerQt(QMainWindow):
                 try:
                     version_text = response.split(":")[1].strip()
                     self.config['firmware_version'] = version_text
-                    self.update_config_display()
                 except:
                     pass
 
@@ -940,12 +928,10 @@ class ESP32ControllerQt(QMainWindow):
             if any(key in response for key in [
                 "Firmware Version:", "Throttle Inverted:", "Level Assistant:",
                 "Speed Unit:", "Motor Pulley Teeth:", "Wheel Pulley Teeth:",
-                "Wheel Diameter:", "Motor Poles:", "BLE Connected:"
+                "Wheel Diameter:", "Motor Poles:", "BLE Connected:",
+                "Kp (Proportional):", "Ki (Integral):", "Kd (Derivative):", "Output Max:"
             ]):
                 self.parse_config_display(response)
-            else:
-                # Update configuration display for individual responses
-                self.update_config_display()
 
         except Exception as e:
             print(f"Error parsing config response: {e}")
@@ -995,28 +981,23 @@ class ESP32ControllerQt(QMainWindow):
                         self.poles_spin.setValue(self.config['motor_poles'])
                     elif key == "BLE Connected":
                         self.config['ble_connected'] = (value.lower() == "yes")
+                    elif key == "Kp (Proportional)":
+                        self.config['pid_kp'] = float(value)
+                        self.pid_kp_spin.setValue(self.config['pid_kp'])
+                    elif key == "Ki (Integral)":
+                        self.config['pid_ki'] = float(value)
+                        self.pid_ki_spin.setValue(self.config['pid_ki'])
+                    elif key == "Kd (Derivative)":
+                        self.config['pid_kd'] = float(value)
+                        self.pid_kd_spin.setValue(self.config['pid_kd'])
+                    elif key == "Output Max":
+                        self.config['pid_output_max'] = float(value)
+                        self.pid_output_max_spin.setValue(self.config['pid_output_max'])
 
                 except Exception as e:
                     print(f"Error parsing line '{line}': {e}")
                     continue
 
-    def update_config_display(self):
-        """Update the configuration display"""
-        config_text = f"""Firmware Version: {self.config['firmware_version']}
-Throttle Inverted: {'Yes' if self.config['invert_throttle'] else 'No'}
-Level Assistant: {'Yes' if self.config['level_assistant'] else 'No'}
-Speed Unit: {'mi/h' if self.config['speed_unit_mph'] else 'km/h'}
-Motor Pulley Teeth: {self.config['motor_pulley']}
-Wheel Pulley Teeth: {self.config['wheel_pulley']}
-Wheel Diameter: {self.config['wheel_diameter_mm']} mm
-Motor Poles: {self.config['motor_poles']}
-BLE Connected: {'Yes' if self.config['ble_connected'] else 'No'}
-PID Kp: {self.config['pid_kp']}
-PID Ki: {self.config['pid_ki']}
-PID Kd: {self.config['pid_kd']}
-PID Output Max: {self.config['pid_output_max']}"""
-
-        self.config_display.setPlainText(config_text)
 
     def log_message(self, message):
         """Add message to response text area"""
@@ -1037,8 +1018,6 @@ PID Output Max: {self.config['pid_output_max']}"""
             self.response_text.append(f"[ERROR] {message}")
         elif "=== Hand Controller Commands ===" in message:
             self.response_text.append(message)
-        elif "help" in message and "Show this help message" in message:
-            pass
         elif any(cmd in message for cmd in ["invert_throttle", "level_assistant", "reset_odometer", "set_motor_pulley",
                                           "set_wheel_pulley", "set_wheel_size", "set_motor_poles", "get_config"]):
             self.response_text.append(f"  {message}")
@@ -1640,15 +1619,10 @@ PID Output Max: {self.config['pid_output_max']}"""
             return
 
         self.log_message("Requesting current configuration...")
+        # Clear any pending responses and wait for ESP32 to be ready
+        time.sleep(0.5)
         self.send_serial_command("get_config")
 
-    def show_help(self):
-        """Show help information"""
-        if not self.serial_worker.is_connected:
-            QMessageBox.warning(self, "Not Connected", "Please connect to ESP32 first")
-            return
-
-        self.send_serial_command("help")
 
     def calibrate_throttle(self):
         """Calibrate throttle"""
