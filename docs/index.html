@@ -296,6 +296,15 @@
             padding: 15px;
             margin: 10px 0;
         }
+
+        .manual-download {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -389,8 +398,19 @@
                     </div>
 
                     <div class="firmware-info" id="firmwareInfo">
-                        <h4>📦 Firmware Information</h4>
+                        <h4> Firmware Information</h4>
                         <div id="firmwareDetails"></div>
+                    </div>
+
+                    <div class="manual-download" id="manualDownload" style="display: none;">
+                        <h4> Manual Download Required</h4>
+                        <p>Due to browser security restrictions, automatic download is not available. Please download manually:</p>
+                        <ol>
+                            <li>Click the button below to open GitHub Releases</li>
+                            <li>Download the latest .bin file for your ESP32</li>
+                            <li>Use the "Select Firmware File" option above to upload it</li>
+                        </ol>
+                        <button class="btn btn-info" onclick="openGitHubReleases()">Open GitHub Releases</button>
                     </div>
 
                     <div style="margin-top: 15px;">
@@ -451,6 +471,7 @@ Ready to connect...
         const downloadStatus = document.getElementById('downloadStatus');
         const firmwareInfo = document.getElementById('firmwareInfo');
         const firmwareDetails = document.getElementById('firmwareDetails');
+        const manualDownload = document.getElementById('manualDownload');
 
         // Check Web Serial API support
         if (!('serial' in navigator)) {
@@ -765,169 +786,16 @@ Ready to connect...
             sendCommand('get_firmware_version');
         }
 
-        // Firmware download functions with CORS proxy
-        async function downloadLatestFirmware() {
-            try {
-                logMessage('[INFO] Downloading latest firmware...', 'status');
-                downloadProgress.style.display = 'block';
-                progressFill.style.width = '0%';
-                downloadStatus.textContent = 'Preparing download...';
-
-                // Try multiple CORS proxy options
-                const corsProxies = [
-                    'https://api.allorigins.win/raw?url=',
-                    'https://cors-anywhere.herokuapp.com/',
-                    'https://thingproxy.freeboard.io/fetch/',
-                    'https://api.codetabs.com/v1/proxy?quest='
-                ];
-
-                const repoUrl = 'https://api.github.com/repos/georgebenett/gb_remote/releases/latest';
-                let response = null;
-                let releaseData = null;
-
-                // Try each CORS proxy
-                for (let i = 0; i < corsProxies.length; i++) {
-                    try {
-                        logMessage(`[INFO] Trying CORS proxy ${i + 1}/${corsProxies.length}...`, 'status');
-                        const proxyUrl = corsProxies[i] + encodeURIComponent(repoUrl);
-                        response = await fetch(proxyUrl);
-                        
-                        if (response.ok) {
-                            releaseData = await response.json();
-                            logMessage(`[SUCCESS] Connected via proxy ${i + 1}`, 'ok');
-                            break;
-                        }
-                    } catch (error) {
-                        logMessage(`[WARNING] Proxy ${i + 1} failed: ${error.message}`, 'warning');
-                        continue;
-                    }
-                }
-
-                if (!releaseData) {
-                    throw new Error('All CORS proxies failed. Please try again later or use a different approach.');
-                }
-
-                const latestVersion = releaseData.tag_name.replace('v', '');
-                logMessage(`[INFO] Latest release found: ${latestVersion}`, 'status');
-                downloadStatus.textContent = `Found version ${latestVersion}...`;
-
-                // Find firmware binary
-                const assets = releaseData.assets || [];
-                const firmwareAssets = assets.filter(asset => asset.name.endsWith('.bin'));
-
-                if (firmwareAssets.length === 0) {
-                    throw new Error('No firmware binary found in latest release');
-                }
-
-                // Use the first firmware binary found
-                const firmwareAsset = firmwareAssets[0];
-                const downloadUrl = firmwareAsset.browser_download_url;
-                const filename = firmwareAsset.name;
-
-                logMessage(`[INFO] Downloading ${filename}...`, 'status');
-                downloadStatus.textContent = `Downloading ${filename}...`;
-                progressFill.style.width = '25%';
-
-                // Download the firmware using the same CORS proxy
-                let firmwareResponse = null;
-                for (let i = 0; i < corsProxies.length; i++) {
-                    try {
-                        const proxyUrl = corsProxies[i] + encodeURIComponent(downloadUrl);
-                        firmwareResponse = await fetch(proxyUrl);
-                        if (firmwareResponse.ok) break;
-                    } catch (error) {
-                        continue;
-                    }
-                }
-
-                if (!firmwareResponse || !firmwareResponse.ok) {
-                    throw new Error('Failed to download firmware file');
-                }
-
-                progressFill.style.width = '50%';
-                downloadStatus.textContent = 'Processing download...';
-
-                const firmwareBlob = await firmwareResponse.blob();
-                const firmwareArrayBuffer = await firmwareBlob.arrayBuffer();
-
-                progressFill.style.width = '75%';
-                downloadStatus.textContent = 'Saving firmware...';
-
-                // Create download link
-                const blob = new Blob([firmwareArrayBuffer], { type: 'application/octet-stream' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-
-                progressFill.style.width = '100%';
-                downloadStatus.textContent = 'Download complete!';
-                
-                logMessage(`[SUCCESS] Firmware downloaded: ${filename}`, 'ok');
-                
-                // Show firmware information
-                showFirmwareInfo(releaseData, firmwareAsset);
-
-                // Auto-hide progress after 3 seconds
-                setTimeout(() => {
-                    downloadProgress.style.display = 'none';
-                }, 3000);
-
-            } catch (error) {
-                logMessage(`[ERROR] Failed to download firmware: ${error.message}`, 'error');
-                downloadStatus.textContent = `Error: ${error.message}`;
-                progressFill.style.width = '0%';
-                
-                // Show alternative download method
-                showAlternativeDownload();
-            }
+        // Simplified firmware download - just show manual option
+        function downloadLatestFirmware() {
+            logMessage('[INFO] Opening GitHub Releases for manual download...', 'status');
+            manualDownload.style.display = 'block';
+            openGitHubReleases();
         }
 
-        function showAlternativeDownload() {
-            const alternativeDiv = document.createElement('div');
-            alternativeDiv.className = 'warning-message';
-            alternativeDiv.innerHTML = `
-                <h4>🔄 Alternative Download Method:</h4>
-                <p>Due to CORS restrictions, you can download the firmware manually:</p>
-                <ol>
-                    <li>Visit: <a href="https://github.com/georgebenett/gb_remote/releases/latest" target="_blank" style="color: #007bff;">GitHub Releases</a></li>
-                    <li>Download the .bin file for your ESP32</li>
-                    <li>Use the "Select Firmware File" option above to upload it</li>
-                </ol>
-            `;
-            
-            const firmwareSection = document.querySelector('.firmware-section');
-            firmwareSection.appendChild(alternativeDiv);
-        }
-
-        function showFirmwareInfo(releaseData, firmwareAsset) {
-            const releaseName = releaseData.name || `Release ${releaseData.tag_name}`;
-            const releaseNotes = releaseData.body || 'No release notes available';
-            const downloadUrl = `https://github.com/georgebenett/gb_remote/releases/tag/${releaseData.tag_name}`;
-            
-            firmwareDetails.innerHTML = `
-                <div><strong>Version:</strong> ${releaseData.tag_name}</div>
-                <div><strong>Name:</strong> ${releaseName}</div>
-                <div><strong>File:</strong> ${firmwareAsset.name} (${(firmwareAsset.size / 1024 / 1024).toFixed(2)} MB)</div>
-                <div><strong>Downloaded:</strong> ${new Date().toLocaleString()}</div>
-                <div style="margin-top: 10px;">
-                    <strong>Release Notes:</strong><br>
-                    <div style="max-height: 100px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 5px;">
-                        ${releaseNotes.substring(0, 500)}${releaseNotes.length > 500 ? '...' : ''}
-                    </div>
-                </div>
-                <div style="margin-top: 10px;">
-                    <a href="${downloadUrl}" target="_blank" style="color: #007bff; text-decoration: none;">
-                        🔗 View on GitHub
-                    </a>
-                </div>
-            `;
-            
-            firmwareInfo.style.display = 'block';
+        function openGitHubReleases() {
+            window.open('https://github.com/georgebenett/gb_remote/releases/latest', '_blank');
+            logMessage('[INFO] GitHub Releases opened in new tab', 'status');
         }
 
         async function checkFirmwareUpdate() {
@@ -940,51 +808,17 @@ Ready to connect...
                     await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for response
                 }
 
-                // Use CORS proxy for GitHub API
-                const corsProxies = [
-                    'https://api.allorigins.win/raw?url=',
-                    'https://cors-anywhere.herokuapp.com/',
-                    'https://thingproxy.freeboard.io/fetch/',
-                    'https://api.codetabs.com/v1/proxy?quest='
-                ];
-
-                const repoUrl = 'https://api.github.com/repos/georgebenett/gb_remote/releases/latest';
-                let releaseData = null;
-
-                for (let i = 0; i < corsProxies.length; i++) {
-                    try {
-                        const proxyUrl = corsProxies[i] + encodeURIComponent(repoUrl);
-                        const response = await fetch(proxyUrl);
-                        if (response.ok) {
-                            releaseData = await response.json();
-                            break;
-                        }
-                    } catch (error) {
-                        continue;
-                    }
-                }
-
-                if (!releaseData) {
-                    throw new Error('Could not fetch release information');
-                }
-
-                const latestVersion = releaseData.tag_name.replace('v', '');
                 const currentVersion = document.getElementById('firmwareVersion').textContent;
 
                 logMessage(`[INFO] Current version: ${currentVersion}`, 'status');
-                logMessage(`[INFO] Latest version: ${latestVersion}`, 'status');
+                logMessage('[INFO] To check for updates, visit GitHub Releases:', 'status');
+                logMessage('[INFO] https://github.com/georgebenett/gb_remote/releases/latest', 'status');
 
                 if (currentVersion === 'Unknown') {
                     logMessage('[WARNING] Could not determine current firmware version', 'warning');
-                    return;
-                }
-
-                // Simple version comparison
-                if (currentVersion !== latestVersion) {
-                    logMessage(`[UPDATE AVAILABLE] Current: ${currentVersion}, Latest: ${latestVersion}`, 'progress');
-                    logMessage(`[INFO] Visit: https://github.com/georgebenett/gb_remote/releases/tag/${releaseData.tag_name}`, 'status');
+                    logMessage('[INFO] Connect to your device and click "Get Version" first', 'status');
                 } else {
-                    logMessage(`[UP TO DATE] Current version ${currentVersion} is the latest`, 'ok');
+                    logMessage('[INFO] Click "Download Latest" to open GitHub Releases', 'status');
                 }
 
             } catch (error) {
@@ -1012,6 +846,7 @@ Ready to connect...
         // Initialize
         logMessage('🌐 GB Remote Lite Config Tool loaded');
         logMessage(' Connect your ESP32 via USB and click "Connect to Remote"');
+        logMessage('💡 For firmware downloads, use the "Download Latest" button to open GitHub Releases');
     </script>
 </body>
 </html>
