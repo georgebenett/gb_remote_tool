@@ -223,7 +223,7 @@
             .main-content {
                 grid-template-columns: 1fr;
             }
-            
+
             .grid-2, .grid-3 {
                 grid-template-columns: 1fr;
             }
@@ -343,6 +343,33 @@
 
                 <div class="section">
                     <h3>⚙️ Basic Configuration</h3>
+
+                    <!-- Toggle Controls -->
+                    <div class="grid-2" style="margin-bottom: 20px;">
+                        <div class="form-group">
+                            <label>Throttle Inversion:</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="throttleInversion" onchange="toggleThrottleInversion()">
+                                <label for="throttleInversion" style="margin: 0;">Inverted (like Boosted boards)</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Level Assistant:</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="levelAssistant" onchange="toggleLevelAssistant()">
+                                <label for="levelAssistant" style="margin: 0;">Enabled</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Speed Unit:</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="speedUnit" onchange="toggleSpeedUnit()">
+                                <label for="speedUnit" style="margin: 0;">mi/h (unchecked = km/h)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hardware Configuration -->
                     <div class="grid-2">
                         <div class="form-group">
                             <label for="motorPulley">Motor Pulley Teeth:</label>
@@ -403,7 +430,7 @@
                         <label for="firmwareFile">Select Firmware File:</label>
                         <input type="file" id="firmwareFile" accept=".bin" onchange="handleFirmwareFileSelect()">
                     </div>
-                    
+
                     <div class="download-progress" id="downloadProgress">
                         <div>Downloading firmware...</div>
                         <div class="progress-bar">
@@ -471,14 +498,14 @@ Ready to connect...
 
     <!-- esptool-js library -->
     <script src="https://unpkg.com/esptool-js/lib/index.js"></script>
-    
+
     <script>
         // Global variables
         let serialPort = null;
         let reader = null;
         let writer = null;
         let isConnected = false;
-        
+
         // ESP32 flashing variables
         let espLoader = null;
         let isFlashing = false;
@@ -525,9 +552,9 @@ Ready to connect...
             try {
                 // Request port access
                 serialPort = await navigator.serial.requestPort();
-                
+
                 // Open port with ESP32 settings
-                await serialPort.open({ 
+                await serialPort.open({
                     baudRate: 115200,
                     dataBits: 8,
                     stopBits: 1,
@@ -612,7 +639,7 @@ Ready to connect...
 
                     const text = new TextDecoder().decode(value);
                     const lines = text.split('\n');
-                    
+
                     for (const line of lines) {
                         if (line.trim()) {
                             logMessage(line.trim());
@@ -661,7 +688,26 @@ Ready to connect...
                 const outputMax = parseFloat(response.match(/[\d.]+/)[0]);
                 document.getElementById('pidOutputMax').value = outputMax;
             }
-            
+
+            // Parse toggle responses
+            if (response.includes('Throttle inversion: ENABLED')) {
+                document.getElementById('throttleInversion').checked = true;
+            } else if (response.includes('Throttle inversion: DISABLED')) {
+                document.getElementById('throttleInversion').checked = false;
+            }
+
+            if (response.includes('Level assistant: ENABLED')) {
+                document.getElementById('levelAssistant').checked = true;
+            } else if (response.includes('Level assistant: DISABLED')) {
+                document.getElementById('levelAssistant').checked = false;
+            }
+
+            if (response.includes('Speed Unit: mi/h')) {
+                document.getElementById('speedUnit').checked = true;
+            } else if (response.includes('Speed Unit: km/h')) {
+                document.getElementById('speedUnit').checked = false;
+            }
+
             // Parse firmware version
             if (response.includes('Firmware version:') || response.includes('Firmware Version:')) {
                 try {
@@ -747,7 +793,7 @@ Ready to connect...
             const logEntry = document.createElement('div');
             logEntry.className = `log-entry log-${messageType}`;
             logEntry.textContent = formattedMessage;
-            
+
             logArea.appendChild(logEntry);
             logArea.scrollTop = logArea.scrollHeight;
         }
@@ -823,6 +869,37 @@ Ready to connect...
             sendCommand('get_calibration');
         }
 
+        // Toggle functions for basic configuration
+        function toggleThrottleInversion() {
+            if (!isConnected) {
+                logMessage('❌ Not connected to ESP32', 'error');
+                // Revert checkbox state
+                document.getElementById('throttleInversion').checked = !document.getElementById('throttleInversion').checked;
+                return;
+            }
+            sendCommand('invert_throttle');
+        }
+
+        function toggleLevelAssistant() {
+            if (!isConnected) {
+                logMessage('❌ Not connected to ESP32', 'error');
+                // Revert checkbox state
+                document.getElementById('levelAssistant').checked = !document.getElementById('levelAssistant').checked;
+                return;
+            }
+            sendCommand('level_assistant');
+        }
+
+        function toggleSpeedUnit() {
+            if (!isConnected) {
+                logMessage('❌ Not connected to ESP32', 'error');
+                // Revert checkbox state
+                document.getElementById('speedUnit').checked = !document.getElementById('speedUnit').checked;
+                return;
+            }
+            sendCommand('toggle_speed_unit');
+        }
+
         function getFirmwareVersion() {
             sendCommand('get_firmware_version');
         }
@@ -842,7 +919,7 @@ Ready to connect...
         async function checkFirmwareUpdate() {
             try {
                 logMessage('[INFO] Checking for firmware updates...', 'status');
-                
+
                 // Get current firmware version from device
                 if (isConnected) {
                     sendCommand('get_firmware_version');
@@ -870,7 +947,7 @@ Ready to connect...
         async function flashFirmware() {
             const fileInput = document.getElementById('firmwareFile');
             const file = fileInput.files[0];
-            
+
             if (!file) {
                 logMessage('❌ Please select a firmware file', 'error');
                 return;
@@ -892,9 +969,9 @@ Ready to connect...
                 flashBtn.disabled = true;
                 flashBtn.textContent = 'Flashing...';
                 flashBtn.className = 'btn btn-warning';
-                
+
                 logMessage('🚀 Starting firmware flashing process...', 'progress');
-                
+
                 // Disconnect from current serial connection if connected
                 if (isConnected) {
                     logMessage('📡 Disconnecting from current serial connection...', 'status');
@@ -905,9 +982,9 @@ Ready to connect...
                 // Request port access for flashing
                 logMessage('🔌 Requesting port access for flashing...', 'status');
                 const port = await navigator.serial.requestPort();
-                
+
                 // Open port for flashing
-                await port.open({ 
+                await port.open({
                     baudRate: 115200,
                     dataBits: 8,
                     stopBits: 1,
@@ -919,11 +996,11 @@ Ready to connect...
                 // Initialize ESPLoader
                 logMessage('🔧 Initializing ESP32 loader...', 'status');
                 espLoader = new ESPLoader(port, 115200, espLoaderTerminal);
-                
+
                 // Connect to ESP32
                 logMessage('🔗 Connecting to ESP32...', 'status');
                 const chip = await espLoader.main();
-                
+
                 if (!chip) {
                     throw new Error('Failed to connect to ESP32');
                 }
@@ -935,7 +1012,7 @@ Ready to connect...
                 // Read firmware file
                 logMessage('📁 Reading firmware file...', 'status');
                 const firmwareData = await readFileAsArrayBuffer(file);
-                
+
                 // Determine flash offset (0x10000 for ESP32 application firmware)
                 const flashOffset = 0x10000;
                 logMessage(`📍 Flash offset: 0x${flashOffset.toString(16).toUpperCase()}`, 'status');
@@ -948,7 +1025,7 @@ Ready to connect...
                 // Write firmware
                 logMessage('📝 Writing firmware to flash...', 'status');
                 const writeResult = await espLoader.write_flash(flashOffset, firmwareData, true, true);
-                
+
                 if (writeResult) {
                     logMessage('✅ Firmware written successfully', 'ok');
                 } else {
@@ -958,7 +1035,7 @@ Ready to connect...
                 // Verify firmware
                 logMessage('🔍 Verifying firmware...', 'status');
                 const verifyResult = await espLoader.verify_flash(flashOffset, firmwareData);
-                
+
                 if (verifyResult) {
                     logMessage('✅ Firmware verification successful', 'ok');
                 } else {
@@ -968,10 +1045,10 @@ Ready to connect...
                 // Reset ESP32
                 logMessage('🔄 Resetting ESP32...', 'status');
                 await espLoader.hard_reset();
-                
+
                 // Close port
                 await port.close();
-                
+
                 logMessage('🎉 Firmware flashing completed successfully!', 'ok');
                 logMessage('📱 ESP32 is now running the new firmware', 'status');
                 logMessage('💡 Click "Connect to Remote" to reconnect and verify the new firmware', 'status');
@@ -979,7 +1056,7 @@ Ready to connect...
             } catch (error) {
                 logMessage(`❌ Flashing failed: ${error.message}`, 'error');
                 console.error('Flashing error:', error);
-                
+
                 // Try to close port if open
                 try {
                     if (port && port.readable) {
@@ -992,7 +1069,7 @@ Ready to connect...
                 isFlashing = false;
                 const flashBtn = document.getElementById('flashBtn');
                 const fileInput = document.getElementById('firmwareFile');
-                
+
                 if (fileInput.files[0]) {
                     flashBtn.disabled = false;
                     flashBtn.textContent = 'Flash Firmware';
@@ -1022,7 +1099,7 @@ Ready to connect...
             const firmwareInfo = document.getElementById('firmwareInfo');
             const firmwareDetails = document.getElementById('firmwareDetails');
             const flashBtn = document.querySelector('button[onclick="flashFirmware()"]');
-            
+
             if (file) {
                 // Validate file type
                 if (!file.name.toLowerCase().endsWith('.bin')) {
@@ -1030,7 +1107,7 @@ Ready to connect...
                     fileInput.value = '';
                     return;
                 }
-                
+
                 // Validate file size (reasonable limits for ESP32 firmware)
                 const maxSize = 4 * 1024 * 1024; // 4MB
                 if (file.size > maxSize) {
@@ -1038,23 +1115,23 @@ Ready to connect...
                     fileInput.value = '';
                     return;
                 }
-                
+
                 // Display file information
                 const fileSizeKB = (file.size / 1024).toFixed(1);
                 const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
                 const sizeText = file.size > 1024 * 1024 ? `${fileSizeMB} MB` : `${fileSizeKB} KB`;
-                
+
                 firmwareDetails.innerHTML = `
                     <div><strong>File:</strong> ${file.name}</div>
                     <div><strong>Size:</strong> ${sizeText}</div>
                     <div><strong>Type:</strong> ESP32 Firmware Binary</div>
                     <div><strong>Status:</strong> Ready to flash</div>
                 `;
-                
+
                 firmwareInfo.style.display = 'block';
                 flashBtn.disabled = false;
                 flashBtn.textContent = 'Flash Firmware';
-                
+
                 logMessage(`📁 Firmware file selected: ${file.name} (${sizeText})`, 'ok');
             } else {
                 firmwareInfo.style.display = 'none';
