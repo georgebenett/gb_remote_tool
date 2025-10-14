@@ -100,7 +100,7 @@
         }
 
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
             border: none;
             padding: 12px 24px;
@@ -350,7 +350,7 @@
                             <label>Throttle Inversion:</label>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <input type="checkbox" id="throttleInversion" onchange="toggleThrottleInversion()">
-                                <label for="throttleInversion" style="margin: 0;">Inverted (like Boosted boards)</label>
+                                <label for="throttleInversion" style="margin: 0;">Inverted</label>
                             </div>
                         </div>
                         <div class="form-group">
@@ -363,8 +363,11 @@
                         <div class="form-group">
                             <label>Speed Unit:</label>
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="checkbox" id="speedUnit" onchange="toggleSpeedUnit()">
-                                <label for="speedUnit" style="margin: 0;">mi/h (unchecked = km/h)</label>
+                                <input type="radio" name="speedUnit" id="speedKm" value="km" checked onchange="toggleSpeedUnit(this.value)">
+                                <label for="speedKm" style="margin: 0;">km/h</label>
+
+                                <input type="radio" name="speedUnit" id="speedMi" value="mi" onchange="toggleSpeedUnit(this.value)">
+                                <label for="speedMi" style="margin: 0;">mi/h</label>
                             </div>
                         </div>
                     </div>
@@ -391,36 +394,6 @@
                             <input type="number" id="motorPoles" value="14" min="1" max="255">
                             <button class="btn" onclick="setMotorPoles()">Set</button>
                         </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h3>🎛️ PID Tuning</h3>
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label for="pidKp">Kp (Proportional):</label>
-                            <input type="number" id="pidKp" value="0.8" step="0.1" min="0" max="10">
-                            <button class="btn" onclick="setPidKp()">Set</button>
-                        </div>
-                        <div class="form-group">
-                            <label for="pidKi">Ki (Integral):</label>
-                            <input type="number" id="pidKi" value="0.5" step="0.01" min="0" max="2">
-                            <button class="btn" onclick="setPidKi()">Set</button>
-                        </div>
-                        <div class="form-group">
-                            <label for="pidKd">Kd (Derivative):</label>
-                            <input type="number" id="pidKd" value="0.05" step="0.01" min="0" max="1">
-                            <button class="btn" onclick="setPidKd()">Set</button>
-                        </div>
-                        <div class="form-group">
-                            <label for="pidOutputMax">Output Max:</label>
-                            <input type="number" id="pidOutputMax" value="48.0" step="1" min="10" max="100">
-                            <button class="btn" onclick="setPidOutputMax()">Set</button>
-                        </div>
-                    </div>
-                    <div style="margin-top: 15px;">
-                        <button class="btn btn-success" onclick="getPidParams()">Get PID Parameters</button>
-                        <button class="btn btn-warning" onclick="loadPidDefaults()">Load Defaults</button>
                     </div>
                 </div>
 
@@ -890,14 +863,24 @@ Ready to connect...
             sendCommand('level_assistant');
         }
 
-        function toggleSpeedUnit() {
+        function toggleSpeedUnit(unit) {
+            const kmCheckbox = document.getElementById('speedKm');
+            const miCheckbox = document.getElementById('speedMi');
+
             if (!isConnected) {
                 logMessage('❌ Not connected to ESP32', 'error');
-                // Revert checkbox state
-                document.getElementById('speedUnit').checked = !document.getElementById('speedUnit').checked;
                 return;
             }
-            sendCommand('toggle_speed_unit');
+
+            if (unit === 'km') {
+                kmCheckbox.checked = true;  // always checked when clicked
+                miCheckbox.checked = false; // uncheck the other
+                sendCommand('toggle_speed_unit');
+            } else if (unit === 'mi') {
+                kmCheckbox.checked = false;
+                miCheckbox.checked = true;
+                sendCommand('toggle_speed_unit');
+            }
         }
 
         function getFirmwareVersion() {
