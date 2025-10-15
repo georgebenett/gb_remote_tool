@@ -433,6 +433,7 @@
                         <button class="btn btn-success" id="flashBtn" onclick="flashFirmware()" disabled>Select Firmware First</button>
                         <button class="btn" onclick="getFirmwareVersion()">Get Version</button>
                         <button class="btn btn-warning" onclick="checkFirmwareUpdate()">Check Updates</button>
+                        <button class="btn btn-secondary" onclick="debugESPLoader()">Debug ESPLoader</button>
                     </div>
                 </div>
 
@@ -470,34 +471,67 @@ Ready to connect...
     </div>
 
     <!-- esptool-js library -->
-    <script src="https://unpkg.com/esptool-js@0.0.3/lib/index.js"></script>
     <script>
-        // Check if ESPLoader is available
-        window.addEventListener('load', function() {
-            if (typeof ESPLoader === 'undefined') {
-                console.error('ESPLoader not loaded from CDN');
-                // Try alternative CDN
+        // Global variable to track ESPLoader availability
+        window.ESPLoaderAvailable = false;
+
+        // Function to load ESPLoader with multiple fallbacks
+        function loadESPLoader() {
+            const cdnSources = [
+                'https://unpkg.com/esptool-js@0.0.3/lib/index.js',
+                'https://cdn.jsdelivr.net/npm/esptool-js@0.0.3/lib/index.js',
+                'https://unpkg.com/esptool-js@latest/lib/index.js'
+            ];
+
+            let currentIndex = 0;
+
+            function tryNextSource() {
+                if (currentIndex >= cdnSources.length) {
+                    console.error('All ESPLoader CDN sources failed');
+                    showESPLoaderError();
+                    return;
+                }
+
                 const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/esptool-js@0.0.3/lib/index.js';
+                script.src = cdnSources[currentIndex];
                 script.onload = function() {
-                    console.log('ESPLoader loaded from alternative CDN');
+                    console.log(`ESPLoader loaded from: ${cdnSources[currentIndex]}`);
+                    // Check if ESPLoader is actually available
+                    setTimeout(() => {
+                        if (typeof ESPLoader !== 'undefined') {
+                            window.ESPLoaderAvailable = true;
+                            console.log('ESPLoader is available globally');
+                        } else {
+                            console.warn('Script loaded but ESPLoader not found, trying next source...');
+                            currentIndex++;
+                            tryNextSource();
+                        }
+                    }, 100);
                 };
                 script.onerror = function() {
-                    console.error('Failed to load ESPLoader from alternative CDN');
-                    // Show error message to user
-                    setTimeout(() => {
-                        const logArea = document.getElementById('logArea');
-                        if (logArea) {
-                            logArea.innerHTML += '<div class="log-entry log-error">❌ ESPLoader library failed to load. Firmware flashing will not work.</div>';
-                            logArea.innerHTML += '<div class="log-entry log-error">Please check your internet connection and refresh the page.</div>';
-                        }
-                    }, 1000);
+                    console.error(`Failed to load ESPLoader from: ${cdnSources[currentIndex]}`);
+                    currentIndex++;
+                    tryNextSource();
                 };
                 document.head.appendChild(script);
-            } else {
-                console.log('ESPLoader loaded successfully');
             }
-        });
+
+            tryNextSource();
+        }
+
+        function showESPLoaderError() {
+            setTimeout(() => {
+                const logArea = document.getElementById('logArea');
+                if (logArea) {
+                    logArea.innerHTML += '<div class="log-entry log-error">❌ ESPLoader library failed to load from all CDN sources.</div>';
+                    logArea.innerHTML += '<div class="log-entry log-error">Firmware flashing will not be available.</div>';
+                    logArea.innerHTML += '<div class="log-entry log-status">💡 Try refreshing the page or check your internet connection.</div>';
+                }
+            }, 1000);
+        }
+
+        // Start loading ESPLoader when page loads
+        window.addEventListener('load', loadESPLoader);
     </script>
 
     <script>
@@ -1020,6 +1054,21 @@ Ready to connect...
             logMessage('[INFO] GitHub Releases opened in new tab', 'status');
         }
 
+        // Debug function to check ESPLoader status
+        function debugESPLoader() {
+            logMessage('🔍 ESPLoader Debug Information:', 'status');
+            logMessage(`  - window.ESPLoaderAvailable: ${window.ESPLoaderAvailable}`, 'status');
+            logMessage(`  - typeof ESPLoader: ${typeof ESPLoader}`, 'status');
+            logMessage(`  - ESPLoader in window: ${'ESPLoader' in window}`, 'status');
+
+            if (typeof ESPLoader !== 'undefined') {
+                logMessage('✅ ESPLoader is available and ready to use', 'ok');
+            } else {
+                logMessage('❌ ESPLoader is not available', 'error');
+                logMessage('💡 Try refreshing the page or check browser console', 'status');
+            }
+        }
+
         async function checkFirmwareUpdate() {
             try {
                 logMessage('[INFO] Checking for firmware updates...', 'status');
@@ -1063,9 +1112,10 @@ Ready to connect...
             }
 
             // Check if ESPLoader is available
-            if (typeof ESPLoader === 'undefined') {
+            if (!window.ESPLoaderAvailable || typeof ESPLoader === 'undefined') {
                 logMessage('❌ ESPLoader library not loaded. Please refresh the page and try again.', 'error');
                 logMessage('💡 If the problem persists, check your internet connection.', 'status');
+                logMessage('🔍 Check browser console for detailed loading errors.', 'status');
                 return;
             }
 
@@ -1262,13 +1312,14 @@ Ready to connect...
 
         // Check ESPLoader availability after a short delay
         setTimeout(() => {
-            if (typeof ESPLoader !== 'undefined') {
+            if (window.ESPLoaderAvailable && typeof ESPLoader !== 'undefined') {
                 logMessage('✅ ESPLoader library loaded successfully - firmware flashing available', 'ok');
             } else {
                 logMessage('⚠️ ESPLoader library not loaded - firmware flashing may not work', 'warning');
                 logMessage('💡 Try refreshing the page if you need to flash firmware', 'status');
+                logMessage('🔍 Check browser console (F12) for detailed loading information', 'status');
             }
-        }, 2000);
+        }, 3000);
 
         function requestConfigWithRetry() {
             if (configRetryCount >= MAX_CONFIG_RETRIES) {
