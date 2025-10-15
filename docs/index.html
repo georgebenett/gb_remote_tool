@@ -470,7 +470,35 @@ Ready to connect...
     </div>
 
     <!-- esptool-js library -->
-    <script src="https://unpkg.com/esptool-js/lib/index.js"></script>
+    <script src="https://unpkg.com/esptool-js@0.0.3/lib/index.js"></script>
+    <script>
+        // Check if ESPLoader is available
+        window.addEventListener('load', function() {
+            if (typeof ESPLoader === 'undefined') {
+                console.error('ESPLoader not loaded from CDN');
+                // Try alternative CDN
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/esptool-js@0.0.3/lib/index.js';
+                script.onload = function() {
+                    console.log('ESPLoader loaded from alternative CDN');
+                };
+                script.onerror = function() {
+                    console.error('Failed to load ESPLoader from alternative CDN');
+                    // Show error message to user
+                    setTimeout(() => {
+                        const logArea = document.getElementById('logArea');
+                        if (logArea) {
+                            logArea.innerHTML += '<div class="log-entry log-error">❌ ESPLoader library failed to load. Firmware flashing will not work.</div>';
+                            logArea.innerHTML += '<div class="log-entry log-error">Please check your internet connection and refresh the page.</div>';
+                        }
+                    }, 1000);
+                };
+                document.head.appendChild(script);
+            } else {
+                console.log('ESPLoader loaded successfully');
+            }
+        });
+    </script>
 
     <script>
         // Global variables
@@ -1034,6 +1062,13 @@ Ready to connect...
                 return;
             }
 
+            // Check if ESPLoader is available
+            if (typeof ESPLoader === 'undefined') {
+                logMessage('❌ ESPLoader library not loaded. Please refresh the page and try again.', 'error');
+                logMessage('💡 If the problem persists, check your internet connection.', 'status');
+                return;
+            }
+
             // Confirm flashing
             if (!confirm(`Are you sure you want to flash firmware to ESP32?\n\nFile: ${file.name}\nSize: ${(file.size / 1024).toFixed(1)} KB\n\nWARNING: This will overwrite the current firmware!`)) {
                 return;
@@ -1224,6 +1259,16 @@ Ready to connect...
         logMessage('🌐 GB Remote Lite Config Tool loaded');
         logMessage(' Connect your ESP32 via USB and click "Connect to Remote"');
         logMessage('💡 For firmware downloads, use the "Download Latest" button to open GitHub Releases');
+
+        // Check ESPLoader availability after a short delay
+        setTimeout(() => {
+            if (typeof ESPLoader !== 'undefined') {
+                logMessage('✅ ESPLoader library loaded successfully - firmware flashing available', 'ok');
+            } else {
+                logMessage('⚠️ ESPLoader library not loaded - firmware flashing may not work', 'warning');
+                logMessage('💡 Try refreshing the page if you need to flash firmware', 'status');
+            }
+        }, 2000);
 
         function requestConfigWithRetry() {
             if (configRetryCount >= MAX_CONFIG_RETRIES) {
