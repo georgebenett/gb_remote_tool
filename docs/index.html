@@ -875,11 +875,11 @@ Ready to connect...
             if (unit === 'km') {
                 kmCheckbox.checked = true;  // always checked when clicked
                 miCheckbox.checked = false; // uncheck the other
-                sendCommand('toggle_speed_unit');
+                sendCommand('set_speed_unit_kmh');
             } else if (unit === 'mi') {
                 kmCheckbox.checked = false;
                 miCheckbox.checked = true;
-                sendCommand('toggle_speed_unit');
+                sendCommand('set_speed_unit_mih');
             }
         }
 
