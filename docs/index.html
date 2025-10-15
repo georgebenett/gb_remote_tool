@@ -363,7 +363,7 @@
                         <div class="form-group">
                             <label>Speed Unit:</label>
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="radio" name="speedUnit" id="speedKm" value="km" checked onchange="toggleSpeedUnit(this.value)">
+                                <input type="radio" name="speedUnit" id="speedKm" value="km" onchange="toggleSpeedUnit(this.value)">
                                 <label for="speedKm" style="margin: 0;">km/h</label>
 
                                 <input type="radio" name="speedUnit" id="speedMi" value="mi" onchange="toggleSpeedUnit(this.value)">
@@ -376,22 +376,22 @@
                     <div class="grid-2">
                         <div class="form-group">
                             <label for="motorPulley">Motor Pulley Teeth:</label>
-                            <input type="number" id="motorPulley" value="15" min="1" max="255">
+                            <input type="number" id="motorPulley" value="" min="1" max="255">
                             <button class="btn" onclick="setMotorPulley()">Set</button>
                         </div>
                         <div class="form-group">
                             <label for="wheelPulley">Wheel Pulley Teeth:</label>
-                            <input type="number" id="wheelPulley" value="33" min="1" max="255">
+                            <input type="number" id="wheelPulley" value="" min="1" max="255">
                             <button class="btn" onclick="setWheelPulley()">Set</button>
                         </div>
                         <div class="form-group">
                             <label for="wheelDiameter">Wheel Diameter (mm):</label>
-                            <input type="number" id="wheelDiameter" value="115" min="1" max="255">
+                            <input type="number" id="wheelDiameter" value="" min="1" max="255">
                             <button class="btn" onclick="setWheelSize()">Set</button>
                         </div>
                         <div class="form-group">
                             <label for="motorPoles">Motor Poles:</label>
-                            <input type="number" id="motorPoles" value="14" min="1" max="255">
+                            <input type="number" id="motorPoles" value="" min="1" max="255">
                             <button class="btn" onclick="setMotorPoles()">Set</button>
                         </div>
                     </div>
@@ -483,6 +483,11 @@ Ready to connect...
         let espLoader = null;
         let isFlashing = false;
 
+        // Add these variables near the top with other global variables
+        let configRetryCount = 0;
+        const MAX_CONFIG_RETRIES = 3;
+        let configRetryTimeout = null;
+
         // DOM elements
         const connectionStatus = document.getElementById('connectionStatus');
         const connectBtn = document.getElementById('connectBtn');
@@ -523,6 +528,13 @@ Ready to connect...
         // Connection functions
         async function connectToESP32() {
             try {
+                // Reset retry counter on new connection
+                configRetryCount = 0;
+                if (configRetryTimeout) {
+                    clearTimeout(configRetryTimeout);
+                    configRetryTimeout = null;
+                }
+
                 // Request port access
                 serialPort = await navigator.serial.requestPort();
 
@@ -546,6 +558,11 @@ Ready to connect...
                 // Start reading data
                 readSerialData();
 
+                // Request configuration from device with retry mechanism
+                setTimeout(() => {
+                    requestConfigWithRetry();
+                }, 1500); // Increased delay to 1.5 seconds for better stability
+
             } catch (error) {
                 logMessage('❌ Connection failed: ' + error.message);
             }
@@ -553,6 +570,13 @@ Ready to connect...
 
         async function disconnectFromESP32() {
             try {
+                // Clear any pending config retry
+                if (configRetryTimeout) {
+                    clearTimeout(configRetryTimeout);
+                    configRetryTimeout = null;
+                }
+                configRetryCount = 0;
+
                 if (reader) {
                     reader.releaseLock();
                 }
@@ -628,7 +652,70 @@ Ready to connect...
         }
 
         function parseResponse(response) {
-            // Parse configuration responses
+            // Check for "Unknown command" error and retry get_config
+            // This must happen BEFORE any filtering in logMessage
+            if (response.includes('Unknown command:') && configRetryCount > 0 && configRetryCount < MAX_CONFIG_RETRIES) {
+                logMessage('⚠️ Config request failed, retrying in 1 second...', 'warning');
+                configRetryTimeout = setTimeout(() => {
+                    requestConfigWithRetry();
+                }, 1000);
+                return; // Don't process this response further
+            }
+
+            // Check if we got a successful config response
+            if (response.includes('=== Current Configuration ===')) {
+                configRetryCount = 0; // Reset retry counter on success
+                if (configRetryTimeout) {
+                    clearTimeout(configRetryTimeout);
+                    configRetryTimeout = null;
+                }
+                logMessage('✅ Configuration received successfully');
+            }
+
+            // Parse configuration responses from get_config command
+            if (response.includes('Motor Pulley Teeth:')) {
+                const teeth = parseInt(response.match(/Motor Pulley Teeth: (\d+)/)[1]);
+                document.getElementById('motorPulley').value = teeth;
+            }
+            if (response.includes('Wheel Pulley Teeth:')) {
+                const teeth = parseInt(response.match(/Wheel Pulley Teeth: (\d+)/)[1]);
+                document.getElementById('wheelPulley').value = teeth;
+            }
+            if (response.includes('Wheel Diameter:') || response.includes('Wheel Dia')) {
+                // Handle both complete and fragmented wheel diameter messages
+                const match = response.match(/Wheel Dia[meter]*:?\s*(\d+)/);
+                if (match) {
+                    const diameter = parseInt(match[1]);
+                    document.getElementById('wheelDiameter').value = diameter;
+                }
+            }
+            if (response.includes('Motor Poles:')) {
+                const poles = parseInt(response.match(/Motor Poles: (\d+)/)[1]);
+                document.getElementById('motorPoles').value = poles;
+            }
+
+            // Parse toggle responses from get_config command
+            if (response.includes('Throttle Inverted: Yes')) {
+                document.getElementById('throttleInversion').checked = true;
+            } else if (response.includes('Throttle Inverted: No')) {
+                document.getElementById('throttleInversion').checked = false;
+            }
+
+            if (response.includes('Level Assistant: Yes')) {
+                document.getElementById('levelAssistant').checked = true;
+            } else if (response.includes('Level Assistant: No')) {
+                document.getElementById('levelAssistant').checked = false;
+            }
+
+            if (response.includes('Speed Unit: mi/h')) {
+                document.getElementById('speedMi').checked = true;
+                document.getElementById('speedKm').checked = false;
+            } else if (response.includes('Speed Unit: km/h')) {
+                document.getElementById('speedKm').checked = true;
+                document.getElementById('speedMi').checked = false;
+            }
+
+            // Keep existing parsing logic for set commands
             if (response.includes('Motor pulley teeth set to:')) {
                 const teeth = parseInt(response.match(/\d+/)[0]);
                 document.getElementById('motorPulley').value = teeth;
@@ -662,7 +749,7 @@ Ready to connect...
                 document.getElementById('pidOutputMax').value = outputMax;
             }
 
-            // Parse toggle responses
+            // Parse toggle responses from set commands
             if (response.includes('Throttle inversion: ENABLED')) {
                 document.getElementById('throttleInversion').checked = true;
             } else if (response.includes('Throttle inversion: DISABLED')) {
@@ -673,12 +760,6 @@ Ready to connect...
                 document.getElementById('levelAssistant').checked = true;
             } else if (response.includes('Level assistant: DISABLED')) {
                 document.getElementById('levelAssistant').checked = false;
-            }
-
-            if (response.includes('Speed Unit: mi/h')) {
-                document.getElementById('speedUnit').checked = true;
-            } else if (response.includes('Speed Unit: km/h')) {
-                document.getElementById('speedUnit').checked = false;
             }
 
             // Parse firmware version
@@ -698,6 +779,16 @@ Ready to connect...
             const timestamp = new Date().toLocaleTimeString();
             let formattedMessage = '';
             let messageType = type;
+
+            // Clean up ANSI escape codes from messages
+            message = message.replace(/\x1b\[[0-9;]*m/g, ''); // Remove ANSI escape codes
+            message = message.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, ''); // Remove any remaining ANSI codes
+            message = message.trim();
+
+            // Skip empty messages after cleaning
+            if (!message) {
+                return;
+            }
 
             // Format different types of messages exactly like PyQt version
             if (message.startsWith('Sent:')) {
@@ -835,7 +926,9 @@ Ready to connect...
         }
 
         function calibrateThrottle() {
-            sendCommand('calibrate_throttle');
+            if (confirm('Throttle Calibration\n\nTo calibrate the throttle, you need to:\n\n1. Rotate the throttle UP to maximum position\n2. Rotate the throttle DOWN to minimum position\n3. Repeat this motion several times\n\nThis will capture the minimum and maximum values for proper throttle operation.\n\nDo you want to start calibration?')) {
+                sendCommand('calibrate_throttle');
+            }
         }
 
         function getCalibration() {
@@ -1131,6 +1224,18 @@ Ready to connect...
         logMessage('🌐 GB Remote Lite Config Tool loaded');
         logMessage(' Connect your ESP32 via USB and click "Connect to Remote"');
         logMessage('💡 For firmware downloads, use the "Download Latest" button to open GitHub Releases');
+
+        function requestConfigWithRetry() {
+            if (configRetryCount >= MAX_CONFIG_RETRIES) {
+                logMessage('❌ Failed to get config after ' + MAX_CONFIG_RETRIES + ' attempts', 'error');
+                configRetryCount = 0; // Reset for next connection
+                return;
+            }
+
+            configRetryCount++;
+            logMessage(`📡 Requesting config (attempt ${configRetryCount}/${MAX_CONFIG_RETRIES})...`);
+            sendCommand('get_config');
+        }
     </script>
 </body>
 </html>
